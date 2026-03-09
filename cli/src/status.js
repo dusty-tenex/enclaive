@@ -96,7 +96,7 @@ export const doctorChecks = [
     name: 'docker sandbox available',
     run: async () => {
       try {
-        const out = execFileSync('docker', ['sandbox', 'ls'], { encoding: 'utf-8', stdio: 'pipe' });
+        execFileSync('docker', ['sandbox', 'ls'], { encoding: 'utf-8', stdio: 'pipe' });
         return { ok: true, message: 'docker sandbox command available' };
       } catch {
         return { ok: false, message: 'docker sandbox not available (requires Docker Desktop 4.62+)' };
