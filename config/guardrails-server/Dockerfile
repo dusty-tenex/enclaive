@@ -45,18 +45,16 @@ RUN --mount=type=secret,id=guardrails_token \
       echo "[WARN] GUARDRAILS_TOKEN not set -- Hub validators not installed"; \
     fi
 
-# Download Sentinel v2 model at build time (no token needed)
-RUN python3 -c "from transformers import pipeline; pipeline('text-classification', model='protectai/sentinel-v2')" && \
-    echo "[OK] Sentinel v2 model cached"
-
-# Download Prompt Guard 2 model at build time (needs HF_TOKEN)
+# Download ML models at build time (both require HF_TOKEN -- Sentinel v2 went gated)
 RUN --mount=type=secret,id=hf_token \
     HF_TOKEN=$(cat /run/secrets/hf_token 2>/dev/null) && \
     if [ -n "$HF_TOKEN" ]; then \
+      HF_TOKEN="$HF_TOKEN" python3 -c "from transformers import pipeline; pipeline('text-classification', model='protectai/sentinel-v2')" && \
+      echo "[OK] Sentinel v2 model cached" && \
       HF_TOKEN="$HF_TOKEN" python3 -c "from transformers import pipeline; pipeline('text-classification', model='meta-llama/Prompt-Guard-2-86M')" && \
       echo "[OK] Prompt Guard 2 model cached"; \
     else \
-      echo "[WARN] HF_TOKEN not set -- Prompt Guard 2 model not cached"; \
+      echo "[WARN] HF_TOKEN not set -- ML models not cached (Sentinel v2, Prompt Guard 2)"; \
     fi
 
 COPY config.py /app/config.py
