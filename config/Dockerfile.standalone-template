@@ -1,0 +1,42 @@
+# For use with: docker sandbox run --template
+# Custom Docker Sandbox template for Claude Code
+#
+# BEFORE BUILDING: Replace these two placeholders with real values:
+#   <REPLACE-WITH-CURRENT-DIGEST> — run:
+#     docker pull docker/sandbox-templates:claude-code
+#     docker inspect --format='{{index .RepoDigests 0}}' docker/sandbox-templates:claude-code
+#   <SHA256-FOR-YOUR-ARCH> — get from:
+#     https://github.com/dandavison/delta/releases/tag/0.18.2
+#
+FROM docker/sandbox-templates:claude-code@sha256:<REPLACE-WITH-CURRENT-DIGEST>
+
+USER root
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ripgrep fd-find jq tree bat htop tmux \
+    python3 python3-pip python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Uncomment if you need native compilation:
+
+# ── Guardrails AI framework + Hub validators ────────────────
+RUN pip install --break-system-packages guardrails-ai detect-secrets && \
+    python3 -c "import guardrails; import detect_secrets; print('Guardrails packages verified')"
+RUN guardrails hub install hub://guardrails/secrets_present --quiet 2>/dev/null || true
+RUN guardrails hub install hub://guardrails/guardrails_pii --quiet 2>/dev/null || true
+RUN guardrails hub install hub://guardrails/detect_prompt_injection --quiet 2>/dev/null || true
+# RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+#     && <compile your native extensions here> \
+#     && apt-get purge -y build-essential && apt-get autoremove -y \
+#     && rm -rf /var/lib/apt/lists/*
+
+RUN ARCH=$(dpkg --print-architecture) && \
+    wget -qO /tmp/git-delta.deb \
+      "https://github.com/dandavison/delta/releases/download/0.18.2/git-delta_0.18.2_${ARCH}.deb" && \
+    echo "<SHA256-FOR-YOUR-ARCH>  /tmp/git-delta.deb" | sha256sum -c - && \
+    dpkg -i /tmp/git-delta.deb && rm -f /tmp/git-delta.deb
+
+COPY scripts/ /usr/local/bin/sandbox-scripts/
+RUN chmod +x /usr/local/bin/sandbox-scripts/*.sh 2>/dev/null || true
+
+USER agent

@@ -1,0 +1,7 @@
+.git/
+.audit-logs/
+.worktrees/
+node_modules/
+*.tar.gz
+review-round*.md
+docs/

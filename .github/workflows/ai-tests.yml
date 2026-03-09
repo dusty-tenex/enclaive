@@ -1,0 +1,46 @@
+name: AI-Powered Tests
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  ai-tests:
+    if: github.repository == 'dusty-tenex/enclAIve'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements-test.txt
+
+      - name: Build and start sidecar
+        run: docker compose up -d guardrails-sidecar
+
+      - name: Wait for sidecar health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+              echo "Sidecar is healthy"
+              exit 0
+            fi
+            echo "Waiting for sidecar... ($i/30)"
+            sleep 2
+          done
+          echo "Sidecar failed to become healthy"
+          exit 1
+
+      - name: Run AI-powered tests
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: pytest tests/ -m ai_powered -v --tb=short
+
+      - name: Teardown
+        if: always()
+        run: docker compose down

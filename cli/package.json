@@ -1,0 +1,27 @@
+{
+  "name": "enclaive",
+  "version": "0.1.0",
+  "description": "CLI tool for enclAIve — defense-in-depth for AI coding assistants",
+  "bin": {
+    "enclaive": "./bin/enclaive.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "lint": "eslint src/ bin/"
+  },
+  "keywords": ["claude", "sandbox", "security", "guardrails"],
+  "license": "AGPL-3.0-only",
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "execa": "^9.5.0",
+    "ora": "^8.1.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  },
+  "type": "module"
+}

@@ -1,0 +1,22 @@
+{
+  "_comment": "Declarative plugin manifest. Bootstrap script reads this, scans each entry, installs clean ones, and wires them into .claude/settings.json.",
+
+  "plugins": [
+    {
+      "name": "plugin-dev",
+      "source": "marketplace",
+      "description": "Anthropic's official plugin development tools"
+    },
+    {
+      "name": "code-review",
+      "source": "marketplace",
+      "description": "Multi-agent PR review with confidence scoring"
+    }
+  ],
+
+  "audit": {
+    "api": "local",
+    "policy": "fail-closed",
+    "block_on": ["critical", "high"]
+  }
+}

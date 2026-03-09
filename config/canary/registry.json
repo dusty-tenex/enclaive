@@ -1,0 +1,144 @@
+{
+  "description": "Canary token registry. Credential env vars and config files are populated with unique tripwire values inside the sandbox. Real credentials never enter the VM — they flow through the Docker credential proxy (network layer) or MCP Gateway (isolated containers). If any canary value appears in outbound traffic, exfiltration is occurring.",
+  "tiers": {
+    "proxy-backed": "Docker's credential proxy injects real credentials at the network layer. Canary env var is always safe — the proxy overrides it transparently.",
+    "tripwire": "No credential proxy for this service. Canary is set by default. If the user needs direct access, they override via .env or docker compose environment. MCP Gateway is the recommended path.",
+    "file": "Honeypot credential file at a standard location. No legitimate service reads these inside the sandbox."
+  },
+  "canaries": [
+    {
+      "type": "anthropic_api_key",
+      "tier": "proxy-backed",
+      "location": "env:ANTHROPIC_API_KEY",
+      "value": "sk-ant-api03-canary-bQ7xR9mK4pL2nW5jF8vH3cY6tA1dS0gE-xxxxxxxxxxxxxxxx",
+      "note": "Docker credential proxy injects real key at network layer."
+    },
+    {
+      "type": "openai_api_key",
+      "tier": "proxy-backed",
+      "location": "env:OPENAI_API_KEY",
+      "value": "sk-canary-openai-8kL3mN7pQ2rS5tU9wX1yZ4bD6fH0jK3nP5qR7sT9u",
+      "note": "Docker credential proxy injects real key at network layer."
+    },
+    {
+      "type": "aws_access_key",
+      "tier": "proxy-backed",
+      "location": "env:AWS_ACCESS_KEY_ID",
+      "value": "AKIAJ3XNWVEOHPZL7QOQ",
+      "note": "Docker credential proxy injects real key at network layer."
+    },
+    {
+      "type": "aws_secret_key",
+      "tier": "proxy-backed",
+      "location": "env:AWS_SECRET_ACCESS_KEY",
+      "value": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYzEXAMPLEKEY",
+      "note": "Docker credential proxy injects real key at network layer."
+    },
+    {
+      "type": "github_token",
+      "tier": "proxy-backed",
+      "location": "env:GITHUB_TOKEN",
+      "value": "ghp_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+      "note": "Docker credential proxy injects real token at network layer."
+    },
+    {
+      "type": "google_api_key",
+      "tier": "proxy-backed",
+      "location": "env:GOOGLE_API_KEY",
+      "value": "AIzaSyC-canary-x7k9m2p4q6r8s0t1u3v5w7y9z1a3b5",
+      "note": "Docker credential proxy injects real key at network layer."
+    },
+    {
+      "type": "xai_api_key",
+      "tier": "proxy-backed",
+      "location": "env:XAI_API_KEY",
+      "value": "xai-canary-x7k9m2p4q6r8s0t1u3v5w7y9z1a3b5c7d9e1f3g5",
+      "note": "Docker credential proxy injects real key at network layer."
+    },
+    {
+      "type": "mistral_api_key",
+      "tier": "proxy-backed",
+      "location": "env:MISTRAL_API_KEY",
+      "value": "mist-canary-x7k9m2p4q6r8s0t1u3v5w7y9z1a3b5c7d9",
+      "note": "Docker credential proxy injects real key at network layer."
+    },
+    {
+      "type": "groq_api_key",
+      "tier": "proxy-backed",
+      "location": "env:GROQ_API_KEY",
+      "value": "gsk_canary_x7k9m2p4q6r8s0t1u3v5w7y9z1a3b5c7d9e1f3",
+      "note": "Docker credential proxy injects real key at network layer."
+    },
+    {
+      "type": "slack_bot_token",
+      "tier": "tripwire",
+      "location": "env:SLACK_BOT_TOKEN",
+      "value": "xoxb-canary-948372615204-5839201746382-aB3cD5eF7gH9iJ1kL3mN5oP",
+      "note": "No proxy support. Override via .env if needed. MCP Gateway recommended."
+    },
+    {
+      "type": "slack_webhook",
+      "tier": "tripwire",
+      "location": "env:SLACK_WEBHOOK_URL",
+      "value": "https://hooks.slack.example.com/services/T00CANARY/B00CANARY/canary24chartoken00000",
+      "note": "No proxy support. Uses .example.com (RFC 6761 reserved)."
+    },
+    {
+      "type": "database_url",
+      "tier": "tripwire",
+      "location": "env:DATABASE_URL",
+      "value": "postgres://canary_user:canary_password_x7k9m2@db.internal.example.com:5432/canary_db",
+      "note": "No proxy support. Override via .env if needed."
+    },
+    {
+      "type": "stripe_secret_key",
+      "tier": "tripwire",
+      "location": "env:STRIPE_SECRET_KEY",
+      "value": "sk_test_canary_51Hx7Kp3mN9qR2sT4uW6yA8bC0dE1fG3hI5jK7lM",
+      "note": "No proxy support. Override via .env if needed. MCP Gateway recommended."
+    },
+    {
+      "type": "sendgrid_api_key",
+      "tier": "tripwire",
+      "location": "env:SENDGRID_API_KEY",
+      "value": "SG.canary_token.x7k9m2p4q6r8s0t1u3v5w7y9z1a3b5c7d9e1f3g5h7",
+      "note": "No proxy support. Override via .env if needed. MCP Gateway recommended."
+    },
+    {
+      "type": "gitlab_token",
+      "tier": "tripwire",
+      "location": "env:GITLAB_TOKEN",
+      "value": "glpat-canary-x7k9m2p4q6r8s0",
+      "note": "No proxy support. Override via .env if needed."
+    },
+    {
+      "type": "npm_token",
+      "tier": "tripwire",
+      "location": "env:NPM_TOKEN",
+      "value": "npm_canary9x7k2m4p6q8r0s1t3u5v7w9y1",
+      "note": "No proxy support. Override via .env if needed."
+    },
+    {
+      "type": "aws_credentials_file",
+      "tier": "file",
+      "location": "file:~/.aws/credentials",
+      "access_key": "AKIAJ3XNWVEOHPZL7QOQ",
+      "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYzEXAMPLEKEY",
+      "note": "Honeypot file. Real AWS access via credential proxy or MCP Gateway."
+    },
+    {
+      "type": "github_token_file",
+      "tier": "file",
+      "location": "file:~/.config/gh/hosts.yml",
+      "value": "ghp_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+      "note": "Honeypot file. Real GitHub access via credential proxy or MCP Gateway."
+    },
+    {
+      "type": "netrc",
+      "tier": "file",
+      "location": "file:~/.netrc",
+      "value": "machine api.internal.corp login deploy password s3cur3-canary-t0ken",
+      "note": "Pure tripwire. No legitimate service should read this."
+    }
+  ]
+}

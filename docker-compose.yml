@@ -1,0 +1,117 @@
+# docker-compose.yml — One-command enclAIve secure sandbox
+#
+# Usage:
+#   docker compose up -d                    # start everything
+#   docker compose exec sandbox claude      # launch Claude Code
+#
+# Or for a fresh project:
+#   docker compose run --rm sandbox         # drops into configured shell
+#
+# What happens:
+#   1. guardrails-sidecar starts (validation API on :8000)
+#   2. sandbox waits for sidecar health check
+#   3. sandbox entrypoint runs setup.sh (hooks, scripts, plugins)
+#   4. You get a shell with Claude Code ready to use
+
+services:
+  # ─── Guardrails Validation Sidecar ─────────────────────────────
+  # Tamper-proof: read-only filesystem, separate container.
+  # Models load once at startup, warm for every validation (~50ms).
+  guardrails-sidecar:
+    build:
+      context: ./config/guardrails-server
+      dockerfile: Dockerfile
+    container_name: guardrails-sidecar
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M
+    volumes:
+      # Mount shared validators and guard definitions (single source of truth)
+      - ./scripts/validators.py:/app/shared/validators.py:ro
+      - ./scripts/guard_definitions.py:/app/shared/guard_definitions.py:ro
+      # Persist audit logs (A-SEC-5)
+      - sidecar-logs:/var/log/guardrails
+    environment:
+      - GUARDRAILS_LOG_LEVEL=WARNING
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    ports:
+      - "${SIDECAR_PORT:-8000}:8000"
+    restart: unless-stopped
+    networks:
+      - sandbox-net
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # ─── Claude Code Sandbox ───────────────────────────────────────
+  # Your workspace with hooks, scripts, and Claude Code pre-configured.
+  # Mount your project at /workspace.
+  sandbox:
+    build:
+      context: .
+      dockerfile: config/sandbox.Dockerfile
+    container_name: enclaive-sandbox
+    depends_on:
+      guardrails-sidecar:
+        condition: service_healthy
+    environment:
+      - GUARDRAILS_SIDECAR_URL=http://guardrails-sidecar:8000
+      - CLAUDE_PROJECT_DIR=/workspace
+    secrets:
+      - anthropic_api_key
+    volumes:
+      # Mount your project directory
+      - ${PROJECT_DIR:-.}:/workspace
+      # Persist Claude config across restarts
+      - claude-config:/home/sandbox/.claude
+      # Guard bypass: read-only mount controlled from host only
+      # To bypass a guard: touch /tmp/sandbox-guard-bypass/bypass-write-guard (on host)
+      - ${GUARD_BYPASS_DIR:-/tmp/sandbox-guard-bypass}:/etc/sandbox-guards:ro
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    # Drop all capabilities, add back only what's needed.
+    # CHOWN+FOWNER: entrypoint sets file ownership before dropping to sandbox.
+    # SETUID+SETGID: gosu needs these to drop from root to sandbox user.
+    # After gosu drops privileges, the sandbox user has NO capabilities.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - FOWNER
+      - SETUID
+      - SETGID
+    # Prevent the sandbox user from gaining new privileges (no SUID binaries)
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - sandbox-net
+    # Network: only allow sidecar + specific allowlisted domains
+    # In production, use network policy or proxy for tighter control
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+
+secrets:
+  anthropic_api_key:
+    environment: ANTHROPIC_API_KEY
+
+volumes:
+  claude-config:
+  sidecar-logs:
+
+networks:
+  sandbox-net:
+    driver: bridge

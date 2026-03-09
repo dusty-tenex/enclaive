@@ -1,0 +1,36 @@
+# Secrets
+.env
+!.env.example
+*.key
+*.pem
+
+# Claude Code
+.claude/settings.local.json
+.claude/credentials
+
+# Agent artifacts
+agent_logs/
+.audit-logs/
+.memory-integrity/
+.worktrees/
+.tmux-resurrect/
+Dockerfile.standalone
+
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+*.egg-info/
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+
+# VS Code Extension
+vscode-extension/out/
+*.vsix
+
+# OS
+.DS_Store
+Thumbs.db

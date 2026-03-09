@@ -1,0 +1,94 @@
+{
+  "name": "enclaive",
+  "displayName": "enclAIve",
+  "description": "Status bar, notifications, and log viewer for enclAIve — defense-in-depth for AI coding assistants.",
+  "version": "0.1.0",
+  "publisher": "dusty-tenex",
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "workspaceContains:docker-compose.yml",
+    "workspaceContains:.claude/settings.json"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "enclaive.start",
+        "title": "enclAIve: Start"
+      },
+      {
+        "command": "enclaive.stop",
+        "title": "enclAIve: Stop"
+      },
+      {
+        "command": "enclaive.restartSidecar",
+        "title": "enclAIve: Restart Sidecar"
+      },
+      {
+        "command": "enclaive.showLog",
+        "title": "enclAIve: Show Security Log"
+      },
+      {
+        "command": "enclaive.doctor",
+        "title": "enclAIve: Run Doctor"
+      },
+      {
+        "command": "enclaive.openShell",
+        "title": "enclAIve: Open Shell"
+      }
+    ],
+    "configuration": {
+      "title": "enclAIve",
+      "properties": {
+        "enclaive.sidecarUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "URL of the guardrails sidecar API."
+        },
+        "enclaive.auditLogPath": {
+          "type": "string",
+          "default": ".audit-logs/security-guard.jsonl",
+          "description": "Path to the audit log file, relative to workspace root."
+        },
+        "enclaive.notifications.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show desktop notifications when a tool call is blocked."
+        },
+        "enclaive.notifications.minInterval": {
+          "type": "number",
+          "default": 5000,
+          "description": "Minimum interval (ms) between block notifications."
+        },
+        "enclaive.statusBar.showBlockCount": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the total block count in the status bar."
+        },
+        "enclaive.autoStart": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically start the sandbox when the workspace opens."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.config.js",
+    "watch": "node esbuild.config.js --watch",
+    "lint": "tsc --noEmit",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.5.0"
+  }
+}

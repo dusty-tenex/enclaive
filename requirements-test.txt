@@ -1,0 +1,5 @@
+pytest>=8.0
+pytest-timeout>=2.2
+requests>=2.31
+guardrails-ai==0.9.1
+detect-secrets==1.5.0

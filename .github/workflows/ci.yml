@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: scripts/
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python lint with ruff
+        run: |
+          pip install ruff
+          ruff check scripts/
+
+      - name: Node lint
+        run: |
+          cd cli
+          npm ci
+          npm run lint
+
+  unit-tests:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements-test.txt
+
+      - name: Install Hub validators
+        env:
+          GUARDRAILS_TOKEN: ${{ secrets.GUARDRAILS_TOKEN }}
+        run: |
+          if [ -n "$GUARDRAILS_TOKEN" ]; then
+            guardrails configure --token "$GUARDRAILS_TOKEN" --enable-metrics false
+            guardrails hub install hub://guardrails/secrets_present --quiet
+            guardrails hub install hub://guardrails/guardrails_pii --quiet
+            guardrails hub install hub://guardrails/detect_jailbreak --quiet
+            guardrails hub install hub://guardrails/unusual_prompt --quiet
+            guardrails hub install hub://guardrails/detect_pii --quiet
+            echo "Hub validators installed"
+          else
+            echo "GUARDRAILS_TOKEN not set -- Hub validator tests will be skipped"
+          fi
+
+      - name: Install bats
+        run: sudo apt-get update && sudo apt-get install -y bats
+
+      - name: Install CLI dependencies
+        run: cd cli && npm ci
+
+      - name: Run pytest unit tests
+        run: pytest tests/unit/ -v --tb=short
+
+      - name: Run bats unit tests
+        continue-on-error: true
+        run: bats tests/unit/*.bats
+
+      - name: Run CLI tests
+        run: cd cli && npm test
+
+  integration-tests:
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+
+      - name: Checkout test fixtures
+        uses: actions/checkout@v4
+        with:
+          repository: dusty-tenex/enclaive-test-fixtures
+          path: test-fixtures
+          token: ${{ secrets.FIXTURES_REPO_TOKEN }}
+        continue-on-error: true
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements-test.txt
+
+      - name: Build sidecar with Hub validators
+        env:
+          GUARDRAILS_TOKEN: ${{ secrets.GUARDRAILS_TOKEN }}
+        run: |
+          docker compose build guardrails-sidecar \
+            --build-arg GUARDRAILS_TOKEN="$GUARDRAILS_TOKEN"
+
+      - name: Start sidecar
+        run: docker compose up -d guardrails-sidecar
+
+      - name: Wait for sidecar health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+              echo "Sidecar is healthy"
+              exit 0
+            fi
+            echo "Waiting for sidecar... ($i/30)"
+            sleep 2
+          done
+          echo "Sidecar failed to become healthy"
+          docker compose logs guardrails-sidecar
+          exit 1
+
+      - name: Run integration tests
+        env:
+          GUARDRAILS_SIDECAR_URL: http://localhost:8000
+          TEST_FIXTURES_DIR: test-fixtures
+        run: pytest tests/integration/ -v --tb=short
+
+      - name: Teardown
+        if: always()
+        run: docker compose down

@@ -1,0 +1,29 @@
+{
+  "name": "enclAIve",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "sandbox",
+  "workspaceFolder": "/workspace",
+  "overrideCommand": true,
+  "shutdownAction": "stopCompose",
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": {
+      "label": "Guardrails Sidecar",
+      "onAutoForward": "silent"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dusty-tenex.enclaive"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "enclaive.sidecarUrl": "http://guardrails-sidecar:8000",
+        "enclaive.auditLogPath": ".audit-logs/security-guard.jsonl"
+      }
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/postCreate.sh",
+  "remoteUser": "sandbox"
+}
