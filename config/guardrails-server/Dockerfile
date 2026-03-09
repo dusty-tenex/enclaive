@@ -14,7 +14,8 @@ RUN pip install --no-cache-dir \
     gunicorn==22.0.0 \
     uvicorn==0.34.0 \
     transformers==4.47.0 \
-    safetensors==0.4.5 && \
+    safetensors==0.4.5 \
+    nltk==3.9.1 && \
     pip install --no-cache-dir \
     torch --extra-index-url https://download.pytorch.org/whl/cpu && \
     python3 -c "import guardrails; import detect_secrets; import transformers; print('Core packages verified')" && \
