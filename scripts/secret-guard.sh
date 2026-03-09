@@ -20,5 +20,13 @@ if RESP=$(curl -sf --max-time 5 -X POST "${SIDECAR}/guards/write_guard/validate"
     exit 0
 fi
 
+# If REQUIRE_SIDECAR is set, do not fall back to inline
+if [ -f /etc/sandbox-guards/enclaive.conf ] && grep -q '^require_sidecar=0$' /etc/sandbox-guards/enclaive.conf 2>/dev/null; then
+    : # Config file explicitly disables — allow fallback
+elif [ "${GUARDRAILS_REQUIRE_SIDECAR:-1}" = "1" ]; then
+    echo "[GUARD] SECRET GUARD: Sidecar unreachable and GUARDRAILS_REQUIRE_SIDECAR=1 — blocking" >&2
+    exit 2
+fi
+
 echo "$INPUT" | python3 "${SCRIPT_DIR}/security_guard.py" --mode write
 exit $?

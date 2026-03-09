@@ -6,7 +6,10 @@ TOOL=$(echo "$INPUT" | jq -r '.tool_name')
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 SKILLS_DIR="${PROJECT_DIR}/.claude/skills"
-STAMP_FILE="/tmp/.skill-scan-stamp"
+# Stamp file in protected location — /var/log/enclaive is root-owned with sticky bit
+STAMP_FILE="${ENCLAIVE_AUDIT_DIR:-/var/log/enclaive}/.skill-scan-stamp"
+# Fallback for non-Docker environments
+[ -d "$(dirname "$STAMP_FILE")" ] || STAMP_FILE="/tmp/.skill-scan-stamp"
 
 case "$TOOL" in
     Write|Edit|MultiEdit|Bash) ;;
@@ -32,11 +35,11 @@ BLOCKED=false
 while IFS= read -r skill_file; do
     echo "  Scanning: $skill_file" >&2
     CONTENT=$(cat "$skill_file")
-    if echo "$CONTENT" | grep -PqE '[\x{200B}\x{200C}\x{200D}\x{FEFF}\x{202A}-\x{202E}]' 2>/dev/null; then
+    if echo "$CONTENT" | python3 -c "import sys; exit(0 if any(ord(c) in {0x200b,0x200c,0x200d,0xfeff,0x180e}|set(range(0x202a,0x202f))|set(range(0x2060,0x2065)) for c in sys.stdin.read()) else 1)" 2>/dev/null; then
         echo "  [ALERT] P0: Hidden Unicode characters in $skill_file" >&2
         BLOCKED=true
     fi
-    if echo "$CONTENT" | grep -qE '(base64 -d|atob|Buffer\.from.*base64)'; then
+    if echo "$CONTENT" | grep -qiE '(base64\s+[-dD]|b64decode|atob|btoa|Buffer\.from.*base64)'; then
         echo "  [ALERT] P0: Base64 encoded payload in $skill_file" >&2
         BLOCKED=true
     fi

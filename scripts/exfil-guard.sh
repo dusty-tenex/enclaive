@@ -23,7 +23,9 @@ if RESP=$(curl -sf --max-time 5 -X POST "${SIDECAR}/guards/exfil_guard/validate"
 fi
 
 # If REQUIRE_SIDECAR is set, do not fall back to inline
-if [ "${GUARDRAILS_REQUIRE_SIDECAR:-1}" = "1" ]; then
+if [ -f /etc/sandbox-guards/enclaive.conf ] && grep -q '^require_sidecar=0$' /etc/sandbox-guards/enclaive.conf 2>/dev/null; then
+    : # Config file explicitly disables — allow fallback
+elif [ "${GUARDRAILS_REQUIRE_SIDECAR:-1}" = "1" ]; then
     echo "[GUARD] EXFIL GUARD: Sidecar unreachable and GUARDRAILS_REQUIRE_SIDECAR=1 — blocking" >&2
     exit 2
 fi

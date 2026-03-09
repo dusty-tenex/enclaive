@@ -51,8 +51,10 @@ if RESP=$(curl -sf --max-time 5 -X POST "${SIDECAR}/guards/memory_guard/validate
 fi
 
 # If REQUIRE_SIDECAR is set, do not fall back to inline (A-SEC-3)
-if [ "${GUARDRAILS_REQUIRE_SIDECAR:-1}" = "1" ]; then
-    echo "[GUARD] GUARD: Sidecar unreachable and GUARDRAILS_REQUIRE_SIDECAR=1 — blocking" >&2
+if [ -f /etc/sandbox-guards/enclaive.conf ] && grep -q '^require_sidecar=0$' /etc/sandbox-guards/enclaive.conf 2>/dev/null; then
+    : # Config file explicitly disables — allow fallback
+elif [ "${GUARDRAILS_REQUIRE_SIDECAR:-1}" = "1" ]; then
+    echo "[GUARD] MEMORY GUARD: Sidecar unreachable and GUARDRAILS_REQUIRE_SIDECAR=1 — blocking" >&2
     exit 2
 fi
 

@@ -89,7 +89,7 @@ def standalone_check(content, mode):
             if mo > 50 and mo/total > 0.8: f.append("Morse")
             if re.search(r'[01]{32,}', content.replace(' ','')): f.append("Binary")
             for m in re.finditer(r'[A-Za-z0-9+/]{40,}={0,2}', content): f.append("Base64 blob")
-            allowed_scripts = set(s.strip().lower() for s in os.environ.get('ENCLAIVE_ALLOWED_SCRIPTS', '').split(',') if s.strip())
+            from validators import _ALLOWED_SCRIPTS as allowed_scripts
             for k,t in [('katakana',3),('hiragana',3),('cyrillic',5),('arabic',3),('hangul',3)]:
                 if k not in allowed_scripts and counts.get(k,0) >= t: f.append(f"{k} script")
     elif mode == "inbound":

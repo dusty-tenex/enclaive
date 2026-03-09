@@ -82,10 +82,14 @@ else
 fi
 
 # Audit log directory (prefer mounted volume, fallback to workspace)
+# Root-owned with sticky bit: agent can create files but not delete others'
 if [ -d /var/log/enclaive ]; then
-    chown sandbox:sandbox /var/log/enclaive
+    chown root:root /var/log/enclaive
+    chmod 1733 /var/log/enclaive
 else
     mkdir -p .audit-logs
+    chown root:root .audit-logs
+    chmod 1733 .audit-logs
 fi
 chown -R sandbox:sandbox .claude
 

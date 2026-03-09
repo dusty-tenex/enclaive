@@ -42,7 +42,7 @@ EXFIL_PATTERNS = [
     (r'ruby\s+-e\s+.*(?:Net::HTTP|TCPSocket|open-uri|URI\.open)', "Ruby network one-liner"),
     (r'curl\s+.*[?&]\w+=\$', "curl with variable in query string"),
     (r'(?:bash|sh|zsh)\s+.*(?:/dev/tcp|/dev/udp)/', "Shell /dev/tcp network access"),
-    (r'curl\s+.*-X\s+POST\s', "curl POST request"),
+    (r'curl\s+.*-X\s+POST\s+.*[\$\(\`@]', "curl POST with dynamic data"),
     (r'curl\s+[^|]*\$\(', "curl with command substitution in URL"),
     (r'curl\s+.*-H\s+["\']?[^"\']*\$', "curl with variable in header"),
     (r'git\s+commit\s+.*--no-verify', "git commit skipping hooks"),
@@ -119,6 +119,41 @@ def normalize_unicode(text):
     import unicodedata
     return unicodedata.normalize('NFKC', text)
 
+def _load_allowed_scripts():
+    """Load allowed scripts from root-owned config file, not env var.
+
+    Config file at /etc/sandbox-guards/enclaive.conf is read-only mounted
+    from the host — the agent cannot modify it.
+    """
+    conf_path = '/etc/sandbox-guards/enclaive.conf'
+    try:
+        with open(conf_path) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith('allowed_scripts='):
+                    val = line.split('=', 1)[1].strip()
+                    return set(s.strip().lower() for s in val.split(',') if s.strip())
+    except (FileNotFoundError, PermissionError):
+        pass
+    # Fallback to env var for non-Docker environments (development only)
+    val = os.environ.get('ENCLAIVE_ALLOWED_SCRIPTS', '')
+    return set(s.strip().lower() for s in val.split(',') if s.strip())
+
+_ALLOWED_SCRIPTS = _load_allowed_scripts()
+
+def _load_require_sidecar():
+    """Load require_sidecar setting from root-owned config file."""
+    conf_path = '/etc/sandbox-guards/enclaive.conf'
+    try:
+        with open(conf_path) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith('require_sidecar='):
+                    return line.split('=', 1)[1].strip()
+    except (FileNotFoundError, PermissionError):
+        pass
+    return os.environ.get('GUARDRAILS_REQUIRE_SIDECAR', '1')
+
 def match_patterns(content, patterns):
     normalized = normalize_unicode(content)
     check_normalized = (normalized != content)
@@ -188,8 +223,7 @@ def register_validators():
         """Foreign scripts in Bash/code context."""
         def __init__(self, **kw):
             super().__init__(**kw)
-            allowed = os.environ.get('ENCLAIVE_ALLOWED_SCRIPTS', '')
-            self._allowed = set(s.strip().lower() for s in allowed.split(',') if s.strip())
+            self._allowed = _ALLOWED_SCRIPTS
         def _validate(self, value, metadata=None):
             if len(value) < 15: return PassResult()
             f = []; counts = count_unicode_ranges(value)
