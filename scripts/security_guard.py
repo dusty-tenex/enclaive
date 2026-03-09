@@ -55,6 +55,23 @@ def build_guard(mode):
 # ═══════════════════════════════════════════════════════════════════════
 # Standalone fallback (same patterns, no framework)
 # ═══════════════════════════════════════════════════════════════════════
+COMMENT_SUSPICIOUS_PATTERNS = [
+    (r'(?i)\b(read_file|write_file|run_command|execute|exec)\b.*\b(send|upload|post|exfil)', "Agentic tool-use with exfil"),
+    (r'(?i)\b(send|upload|post|transmit)\b.*\b(contents?|data|file|key|secret|token)\b.*\b(to|http|url)', "Data exfil instruction"),
+    (r'(?i)\b(curl|wget|fetch|request)\b.*\bhttps?://', "Network command in comment"),
+    (r'(?i)\b(read|access|cat|open)\b.*\b(ssh|id_rsa|credentials?|\.env|aws|secret)', "Sensitive file access instruction"),
+]
+
+def _scan_comments(content, f, label_prefix):
+    """Scan HTML and markdown comments for injection, exfil, and agentic patterns."""
+    all_patterns = INJECTION_PATTERNS + EXFIL_PATTERNS + COMMENT_SUSPICIOUS_PATTERNS
+    for c in re.findall(r'<!--([\s\S]*?)-->', content):
+        for pat, label in all_patterns:
+            if re.search(pat, c): f.append(f"In HTML comment: {label}"); break
+    for c in re.findall(r'\[//\]:\s*#\s*\(([^)]*)\)', content):
+        for pat, label in all_patterns:
+            if re.search(pat, c): f.append(f"In markdown comment: {label}"); break
+
 def standalone_check(content, mode):
     f = []
     if mode == "memory":
@@ -63,9 +80,7 @@ def standalone_check(content, mode):
         f.extend(match_patterns(content, ENCODING_PATTERNS))
         f.extend(match_patterns(content, PII_PATTERNS))
         if HIDDEN_UNICODE.search(content): f.append("Hidden Unicode")
-        for c in re.findall(r'<!--([\s\S]*?)-->', content):
-            for pat, label in INJECTION_PATTERNS[:4]:
-                if re.search(pat, c): f.append(f"In comment: {label}"); break
+        _scan_comments(content, f, "memory")
         lines = [l.strip() for l in content.split('\n') if l.strip()]
         if len(lines) >= 4:
             fc = ''.join(l[0] for l in lines if l); fl = fc.lower()
@@ -92,10 +107,18 @@ def standalone_check(content, mode):
             from validators import _ALLOWED_SCRIPTS as allowed_scripts
             for k,t in [('katakana',3),('hiragana',3),('cyrillic',5),('arabic',3),('hangul',3)]:
                 if k not in allowed_scripts and counts.get(k,0) >= t: f.append(f"{k} script")
+        # Eval/source escalation (P0 — computed strings uninspectable by AST)
+        try:
+            from bash_ast import has_eval_or_source
+            if has_eval_or_source(content):
+                f.append("P0: eval/source detected — computed strings uninspectable")
+        except ImportError:
+            pass
     elif mode == "inbound":
         f.extend(match_patterns(content, INJECTION_PATTERNS))
         f.extend(match_patterns(content, ENCODING_PATTERNS))
         if HIDDEN_UNICODE.search(content): f.append("Hidden Unicode")
+        _scan_comments(content, f, "inbound")
     elif mode == "write":
         f.extend(match_patterns(content, CREDENTIAL_PATTERNS))
         f.extend(match_patterns(content, PII_PATTERNS))
