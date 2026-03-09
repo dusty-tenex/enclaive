@@ -17,7 +17,8 @@ RUN pip install --no-cache-dir \
     safetensors==0.4.5 && \
     pip install --no-cache-dir \
     torch --extra-index-url https://download.pytorch.org/whl/cpu && \
-    python3 -c "import guardrails; import detect_secrets; import transformers; print('Core packages verified')"
+    python3 -c "import guardrails; import detect_secrets; import transformers; print('Core packages verified')" && \
+    python3 -c "import nltk; nltk.download('punkt', download_dir='/usr/local/nltk_data'); nltk.download('punkt_tab', download_dir='/usr/local/nltk_data')"
 
 # Install shfmt binary
 ARG SHFMT_VERSION=3.10.0
@@ -65,6 +66,7 @@ COPY warmup.py /app/warmup.py
 RUN useradd -r guardrails
 USER guardrails
 
+ENV NLTK_DATA=/usr/local/nltk_data
 EXPOSE 8000
 
 # Production: warmup models then start gunicorn with uvicorn ASGI workers
