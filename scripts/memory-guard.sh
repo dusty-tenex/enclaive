@@ -19,10 +19,11 @@ case "$TOOL" in
                 CLAUDE.md|RALPH.md|progress.md|MEMORY.md|SOUL.md) ;;  # memory file — check it
                 *)
                     # Check for .claude/agents/*/memory/ or .claude/skills/*.md
-                    case "$FILE_PATH" in
-                        *.claude/agents/*/memory/*|*.claude/skills/*.md) ;;  # memory file — check it
-                        *) exit 0 ;;  # not a memory file — skip
-                    esac
+                    if [[ "$FILE_PATH" =~ \.claude/(agents/.*/memory/|skills/.*\.md) ]]; then
+                        :  # memory file — check it
+                    else
+                        exit 0  # not a memory file — skip
+                    fi
                     ;;
             esac
         fi

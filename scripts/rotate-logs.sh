@@ -8,9 +8,9 @@ MAX_AGENT_AGE_DAYS=7
 if [ -d "$AUDIT_DIR" ]; then
     COUNT=$(find "$AUDIT_DIR" -name "*.json" -type f | wc -l)
     if [ "$COUNT" -gt "$MAX_AUDIT_FILES" ]; then
-        find "$AUDIT_DIR" -name "*.json" -type f -printf '%T@ %p\n' \
-            | sort -n | head -n "$((COUNT - MAX_AUDIT_FILES))" \
-            | awk '{print $2}' | xargs rm -f
+        find "$AUDIT_DIR" -name "*.json" -type f -printf '%T@ %p\0' \
+            | sort -zn | head -zn "$((COUNT - MAX_AUDIT_FILES))" \
+            | sed -z 's/^[^ ]* //' | xargs -0 rm -f
         echo "[rotate] Pruned $((COUNT - MAX_AUDIT_FILES)) old audit logs"
     fi
 fi

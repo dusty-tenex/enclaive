@@ -21,6 +21,9 @@ services:
     build:
       context: ./config/guardrails-server
       dockerfile: Dockerfile
+      secrets:
+        - guardrails_token
+        - hf_token
     container_name: guardrails-sidecar
     read_only: true
     tmpfs:
@@ -132,6 +135,10 @@ services:
 secrets:
   anthropic_api_key:
     environment: ANTHROPIC_API_KEY
+  guardrails_token:
+    environment: GUARDRAILS_TOKEN
+  hf_token:
+    environment: HF_TOKEN
 
 volumes:
   claude-config:

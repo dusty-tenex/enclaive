@@ -28,9 +28,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
     apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 # Install Hub validators (free API key from hub.guardrailsai.com)
-# Pass --build-arg GUARDRAILS_TOKEN=your-token, or set env before build.
-ARG GUARDRAILS_TOKEN=""
-RUN if [ -n "$GUARDRAILS_TOKEN" ]; then \
+# Pass via BuildKit secret to avoid leaking token in image layers:
+#   docker build --secret id=guardrails_token,env=GUARDRAILS_TOKEN
+RUN --mount=type=secret,id=guardrails_token \
+    GUARDRAILS_TOKEN=$(cat /run/secrets/guardrails_token 2>/dev/null) && \
+    if [ -n "$GUARDRAILS_TOKEN" ]; then \
       guardrails configure --token "$GUARDRAILS_TOKEN" --enable-metrics false && \
       guardrails hub install hub://guardrails/secrets_present --quiet && \
       guardrails hub install hub://guardrails/guardrails_pii --quiet && \
@@ -47,8 +49,9 @@ RUN python3 -c "from transformers import pipeline; pipeline('text-classification
     echo "[OK] Sentinel v2 model cached"
 
 # Download Prompt Guard 2 model at build time (needs HF_TOKEN)
-ARG HF_TOKEN=""
-RUN if [ -n "$HF_TOKEN" ]; then \
+RUN --mount=type=secret,id=hf_token \
+    HF_TOKEN=$(cat /run/secrets/hf_token 2>/dev/null) && \
+    if [ -n "$HF_TOKEN" ]; then \
       HF_TOKEN="$HF_TOKEN" python3 -c "from transformers import pipeline; pipeline('text-classification', model='meta-llama/Prompt-Guard-2-86M')" && \
       echo "[OK] Prompt Guard 2 model cached"; \
     else \

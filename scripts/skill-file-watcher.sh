@@ -35,7 +35,7 @@ BLOCKED=false
 while IFS= read -r skill_file; do
     echo "  Scanning: $skill_file" >&2
     CONTENT=$(cat "$skill_file")
-    if echo "$CONTENT" | python3 -c "import sys; exit(0 if any(ord(c) in {0x200b,0x200c,0x200d,0xfeff,0x180e}|set(range(0x202a,0x202f))|set(range(0x2060,0x2065)) for c in sys.stdin.read()) else 1)" 2>/dev/null; then
+    if command -v python3 >/dev/null && echo "$CONTENT" | python3 -c "import sys; exit(0 if any(ord(c) in {0x200b,0x200c,0x200d,0xfeff,0x180e}|set(range(0x202a,0x202f))|set(range(0x2060,0x2065)) for c in sys.stdin.read()) else 1)" 2>/dev/null; then
         echo "  [ALERT] P0: Hidden Unicode characters in $skill_file" >&2
         BLOCKED=true
     fi
