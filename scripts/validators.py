@@ -265,10 +265,23 @@ def register_validators():
 
     @register_validator(name="enclaive/exfil-detector", data_type="string")
     class ExfilDetector(Validator):
-        """Bash command exfiltration detection."""
-        def __init__(self, **kw): super().__init__(**kw)
+        """Bash command exfiltration detection with optional AST extraction."""
+        def __init__(self, use_ast=False, **kw):
+            super().__init__(**kw)
+            self._use_ast = use_ast
         def _validate(self, value, metadata=None):
             f = match_patterns(value, EXFIL_PATTERNS)
+            if self._use_ast and _ML_CONFIG.get('bash_ast_parser', True):
+                try:
+                    from bash_ast import extract_strings
+                    extracted = extract_strings(value)
+                    for s in extracted:
+                        sf = match_patterns(s, EXFIL_PATTERNS)
+                        f.extend(f"In AST string: {x}" for x in sf)
+                        cf = match_patterns(s, CREDENTIAL_PATTERNS)
+                        f.extend(f"In AST string: {x}" for x in cf)
+                except Exception:
+                    pass
             return FailResult(error_message=f"Exfil: {'; '.join(f)}") if f else PassResult()
 
     @register_validator(name="enclaive/encoding-detector", data_type="string")
@@ -429,6 +442,19 @@ def register_validators():
                 pass
             return PassResult()
 
+    @register_validator(name="enclaive/eval-source-escalator", data_type="string")
+    class EvalSourceEscalator(Validator):
+        """P0 escalation for eval/source/dot-source commands."""
+        def __init__(self, **kw):
+            super().__init__(**kw)
+        def _validate(self, value, metadata=None):
+            from bash_ast import has_eval_or_source
+            if has_eval_or_source(value):
+                return FailResult(
+                    error_message="P0 ESCALATION: eval/source detected — computed strings cannot be AST-inspected"
+                )
+            return PassResult()
+
     return {
         'ExfilDetector': ExfilDetector,
         'EncodingDetector': EncodingDetector,
@@ -436,6 +462,7 @@ def register_validators():
         'AcrosticDetector': AcrosticDetector,
         'SentinelV2Detector': SentinelV2Detector,
         'PromptGuard2Detector': PromptGuard2Detector,
+        'EvalSourceEscalator': EvalSourceEscalator,
     }
 
 # Auto-register on import

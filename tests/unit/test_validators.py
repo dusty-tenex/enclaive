@@ -616,6 +616,37 @@ class TestPromptGuard2Detector:
 
 
 # =========================================================================
+# EvalSourceEscalator
+# =========================================================================
+class TestEvalSourceEscalator:
+    @pytest.fixture(autouse=True)
+    def load_validators(self):
+        self.validators = register_validators()
+        if not self.validators or 'EvalSourceEscalator' not in self.validators:
+            pytest.skip("EvalSourceEscalator not available")
+
+    def test_eval_blocked(self):
+        detector = self.validators['EvalSourceEscalator']()
+        result = detector._validate('eval "$(echo malicious)"')
+        assert hasattr(result, 'error_message')
+
+    def test_source_blocked(self):
+        detector = self.validators['EvalSourceEscalator']()
+        result = detector._validate('source /tmp/evil.sh')
+        assert hasattr(result, 'error_message')
+
+    def test_normal_command_passes(self):
+        detector = self.validators['EvalSourceEscalator']()
+        result = detector._validate('echo hello world')
+        assert not hasattr(result, 'error_message') or result.error_message is None
+
+    def test_grep_eval_not_blocked(self):
+        detector = self.validators['EvalSourceEscalator']()
+        result = detector._validate('grep "eval" file.txt')
+        assert not hasattr(result, 'error_message') or result.error_message is None
+
+
+# =========================================================================
 # ML Config Loading
 # =========================================================================
 class TestMLConfigLoading:
