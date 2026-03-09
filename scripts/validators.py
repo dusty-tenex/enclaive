@@ -10,6 +10,7 @@ Do NOT duplicate these patterns elsewhere. Import from this module.
 import os
 import re
 import math
+import sys
 from collections import Counter
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -167,8 +168,6 @@ def _load_ml_config():
     bash_ast_parser, ml_sentinel_threshold, ml_prompt_guard_threshold,
     ml_ensemble_mode.
     """
-    import sys
-
     # Defaults (secure-by-default)
     defaults = {
         'ml_sentinel_v2': True,
@@ -219,7 +218,12 @@ def _load_ml_config():
             result[key] = (raw != '0')
         elif typ == 'float':
             try:
-                result[key] = float(raw)
+                parsed = float(raw)
+                if 0.0 <= parsed <= 1.0:
+                    result[key] = parsed
+                else:
+                    result[key] = defaults[key]
+                    print(f"WARNING: {key}={raw} outside valid range [0.0, 1.0] — using default {defaults[key]}", file=sys.stderr)
             except ValueError:
                 result[key] = defaults[key]
         elif typ == 'str':
@@ -231,7 +235,7 @@ def _load_ml_config():
     # Warn if any threshold is dangerously high
     for tkey in ('ml_sentinel_threshold', 'ml_prompt_guard_threshold'):
         if result[tkey] > 0.95:
-            print(f"WARNING: {tkey}={result[tkey]} exceeds 0.95 -- may cause false negatives", file=sys.stderr)
+            print(f"WARNING: {tkey}={result[tkey]} will miss most attacks — recommended range 0.80-0.95", file=sys.stderr)
 
     return result
 
