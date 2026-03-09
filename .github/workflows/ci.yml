@@ -79,7 +79,14 @@ jobs:
         run: pytest tests/unit/ -v --tb=short
 
       - name: Run bats unit tests
-        run: bats tests/unit/*.bats
+        run: |
+          shopt -s nullglob
+          files=(tests/unit/*.bats)
+          if [ ${#files[@]} -gt 0 ]; then
+            bats "${files[@]}"
+          else
+            echo "No .bats files found -- skipping"
+          fi
 
       - name: Run CLI tests
         run: cd cli && npm test
