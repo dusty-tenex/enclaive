@@ -108,8 +108,8 @@ def extract_strings(command: str) -> List[str]:
 
 
 # Regex patterns for eval/source detection
-_EVAL_SOURCE_PATTERN = re.compile(r"(?:^|[;&|]\s*)(?:eval|source)\s")
-_DOT_SOURCE_PATTERN = re.compile(r"(?:^|[;&|]\s*)\.\s+\S")
+_EVAL_SOURCE_PATTERN = re.compile(r"(?:^|[;&|\n]\s*)(?:eval|source)\s", re.MULTILINE)
+_DOT_SOURCE_PATTERN = re.compile(r"(?:^|[;&|\n]\s*)\.\s+\S", re.MULTILINE)
 
 
 def has_eval_or_source(command: str) -> bool:
