@@ -341,11 +341,56 @@ def register_validators():
                 if re.search(term, fl): f.append(f"Acrostic spells '{term}'")
             return FailResult(error_message=f"Acrostic: {'; '.join(f)}") if f else PassResult()
 
+    @register_validator(name="enclaive/sentinel-v2-detector", data_type="string")
+    class SentinelV2Detector(Validator):
+        """ML-based injection/jailbreak detection using ProtectAI Sentinel v2."""
+        _pipeline = None
+        _load_attempted = False
+
+        def __init__(self, **kw):
+            super().__init__(**kw)
+
+        @classmethod
+        def _get_pipeline(cls):
+            if cls._load_attempted:
+                return cls._pipeline
+            cls._load_attempted = True
+            try:
+                from transformers import pipeline
+                cls._pipeline = pipeline(
+                    "text-classification",
+                    model="protectai/sentinel-v2",
+                    device=-1,
+                    truncation=True,
+                    max_length=512,
+                )
+            except Exception:
+                cls._pipeline = None
+            return cls._pipeline
+
+        def _validate(self, value, metadata=None):
+            if not _ML_CONFIG.get('ml_sentinel_v2', True):
+                return PassResult()
+            pipe = self._get_pipeline()
+            if pipe is None:
+                return PassResult()
+            try:
+                result = pipe(value[:512])[0]
+                threshold = _ML_CONFIG.get('ml_sentinel_threshold', 0.85)
+                if result['label'] == 'INJECTION' and result['score'] >= threshold:
+                    return FailResult(
+                        error_message=f"ML Sentinel v2: injection detected (score={result['score']:.3f}, threshold={threshold})"
+                    )
+            except Exception:
+                pass
+            return PassResult()
+
     return {
         'ExfilDetector': ExfilDetector,
         'EncodingDetector': EncodingDetector,
         'ForeignScriptDetector': ForeignScriptDetector,
         'AcrosticDetector': AcrosticDetector,
+        'SentinelV2Detector': SentinelV2Detector,
     }
 
 # Auto-register on import
