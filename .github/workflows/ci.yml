@@ -131,7 +131,7 @@ jobs:
       - name: Wait for sidecar health
         run: |
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+            if curl -sf http://localhost:8000/health-check > /dev/null 2>&1; then
               echo "Sidecar is healthy"
               exit 0
             fi

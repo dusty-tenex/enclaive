@@ -37,7 +37,7 @@ services:
     environment:
       - GUARDRAILS_LOG_LEVEL=WARNING
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request, os; urllib.request.urlopen('http://localhost:8000/health'); assert os.path.exists('/tmp/models_ready'), 'models not ready'"]
+      test: ["CMD", "python3", "-c", "import urllib.request, os; urllib.request.urlopen('http://localhost:8000/health-check'); assert os.path.exists('/tmp/models_ready'), 'models not ready'"]
       interval: 10s
       timeout: 5s
       retries: 5
