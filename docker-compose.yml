@@ -34,11 +34,11 @@ services:
     environment:
       - GUARDRAILS_LOG_LEVEL=WARNING
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "python3", "-c", "import urllib.request, os; urllib.request.urlopen('http://localhost:8000/health'); assert os.path.exists('/tmp/models_ready'), 'models not ready'"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 60s
     ports:
       - "${SIDECAR_PORT:-8000}:8000"
     restart: unless-stopped
@@ -48,7 +48,7 @@ services:
       resources:
         limits:
           cpus: "1.0"
-          memory: 1G
+          memory: 3G
         reservations:
           cpus: "0.25"
           memory: 256M
