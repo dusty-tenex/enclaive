@@ -81,9 +81,13 @@ else
     echo "  [OK] .claude/settings.json updated (sidecar URL)"
 fi
 
-# Audit log directory
-mkdir -p .audit-logs
-chown -R sandbox:sandbox .claude .audit-logs
+# Audit log directory (prefer mounted volume, fallback to workspace)
+if [ -d /var/log/enclaive ]; then
+    chown sandbox:sandbox /var/log/enclaive
+else
+    mkdir -p .audit-logs
+fi
+chown -R sandbox:sandbox .claude
 
 # ── Git pre-commit hook (secret scanner) ───────────────────────────
 # Inline hook installation (previously in install-hooks.sh, now deprecated)

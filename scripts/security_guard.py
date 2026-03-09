@@ -89,8 +89,9 @@ def standalone_check(content, mode):
             if mo > 50 and mo/total > 0.8: f.append("Morse")
             if re.search(r'[01]{32,}', content.replace(' ','')): f.append("Binary")
             for m in re.finditer(r'[A-Za-z0-9+/]{40,}={0,2}', content): f.append("Base64 blob")
+            allowed_scripts = set(s.strip().lower() for s in os.environ.get('ENCLAIVE_ALLOWED_SCRIPTS', '').split(',') if s.strip())
             for k,t in [('katakana',3),('hiragana',3),('cyrillic',5),('arabic',3),('hangul',3)]:
-                if counts.get(k,0) >= t: f.append(f"{k} script")
+                if k not in allowed_scripts and counts.get(k,0) >= t: f.append(f"{k} script")
     elif mode == "inbound":
         f.extend(match_patterns(content, INJECTION_PATTERNS))
         f.extend(match_patterns(content, ENCODING_PATTERNS))
@@ -109,7 +110,7 @@ def standalone_check(content, mode):
                 dec = base64.b64decode(m.group()).decode('utf-8', errors='ignore')
                 df = match_patterns(dec, CREDENTIAL_PATTERNS)
                 if df: f.extend(f"In base64: {x}" for x in df)
-            except: pass
+            except Exception: pass
     return (bool(f), "; ".join(f))
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -166,7 +167,7 @@ def main():
     bypass = bypass_files.get(args.mode)
     if bypass and os.path.isfile(f"/etc/sandbox-guards/{bypass}"): sys.exit(0)
     file_path, content = extract(hook, args.mode)
-    if not content or len(content) < 10: sys.exit(0)
+    if not content: sys.exit(0)
     if args.mode == "memory" and not is_memory_file(file_path): sys.exit(0)
 
     blocked, reason = False, ""
@@ -183,8 +184,11 @@ def main():
 
     if not blocked: sys.exit(0)
 
-    project_dir = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
-    audit_dir = os.path.join(project_dir, ".audit-logs"); os.makedirs(audit_dir, exist_ok=True)
+    audit_dir = os.environ.get("ENCLAIVE_AUDIT_DIR", "/var/log/enclaive")
+    if not os.path.isdir(audit_dir):
+        project_dir = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+        audit_dir = os.path.join(project_dir, ".audit-logs")
+    os.makedirs(audit_dir, exist_ok=True)
     log = {"timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
            "mode": args.mode, "file": file_path, "tool": hook.get("tool_name",""),
            "action": "BLOCKED", "reason": reason[:500],

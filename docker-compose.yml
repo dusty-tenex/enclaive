@@ -53,6 +53,24 @@ services:
           cpus: "0.25"
           memory: 256M
 
+  # ─── HTTP Proxy for Egress Control ────────────────────────────────
+  # Allowlist-based outbound access. Sandbox has no direct internet.
+  # Configure allowed domains in config/proxy/squid.conf
+  egress-proxy:
+    image: ubuntu/squid:latest
+    container_name: enclaive-proxy
+    volumes:
+      - ./config/proxy/squid.conf:/etc/squid/squid.conf:ro
+    networks:
+      - sandbox-net
+      - egress-net
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
   # ─── Claude Code Sandbox ───────────────────────────────────────
   # Your workspace with hooks, scripts, and Claude Code pre-configured.
   # Mount your project at /workspace.
@@ -67,6 +85,11 @@ services:
     environment:
       - GUARDRAILS_SIDECAR_URL=http://guardrails-sidecar:8000
       - CLAUDE_PROJECT_DIR=/workspace
+      - ENCLAIVE_AUDIT_DIR=/var/log/enclaive
+      - GUARDRAILS_REQUIRE_SIDECAR=1
+      - HTTP_PROXY=http://egress-proxy:3128
+      - HTTPS_PROXY=http://egress-proxy:3128
+      - NO_PROXY=guardrails-sidecar,localhost,127.0.0.1
     secrets:
       - anthropic_api_key
     volumes:
@@ -74,6 +97,8 @@ services:
       - ${PROJECT_DIR:-.}:/workspace
       # Persist Claude config across restarts
       - claude-config:/home/sandbox/.claude
+      # Audit logs: append-only volume shared with sidecar, not in workspace
+      - audit-logs:/var/log/enclaive
       # Guard bypass: read-only mount controlled from host only
       # To bypass a guard: touch /tmp/sandbox-guard-bypass/bypass-write-guard (on host)
       - ${GUARD_BYPASS_DIR:-/tmp/sandbox-guard-bypass}:/etc/sandbox-guards:ro
@@ -111,7 +136,11 @@ secrets:
 volumes:
   claude-config:
   sidecar-logs:
+  audit-logs:
 
 networks:
   sandbox-net:
+    driver: bridge
+    internal: true
+  egress-net:
     driver: bridge

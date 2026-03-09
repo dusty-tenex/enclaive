@@ -7,6 +7,7 @@ This is the single source of truth for all detection logic. Used by:
 
 Do NOT duplicate these patterns elsewhere. Import from this module.
 """
+import os
 import re
 import math
 from collections import Counter
@@ -41,6 +42,11 @@ EXFIL_PATTERNS = [
     (r'ruby\s+-e\s+.*(?:Net::HTTP|TCPSocket|open-uri|URI\.open)', "Ruby network one-liner"),
     (r'curl\s+.*[?&]\w+=\$', "curl with variable in query string"),
     (r'(?:bash|sh|zsh)\s+.*(?:/dev/tcp|/dev/udp)/', "Shell /dev/tcp network access"),
+    (r'curl\s+.*-X\s+POST\s', "curl POST request"),
+    (r'curl\s+[^|]*\$\(', "curl with command substitution in URL"),
+    (r'curl\s+.*-H\s+["\']?[^"\']*\$', "curl with variable in header"),
+    (r'git\s+commit\s+.*--no-verify', "git commit skipping hooks"),
+    (r'(?:pbcopy|xclip|xsel|wl-copy)', "Clipboard exfiltration utility"),
 ]
 
 CREDENTIAL_PATTERNS = [
@@ -73,7 +79,7 @@ ENCODING_PATTERNS = [
     (r'\\u[0-9a-fA-F]{4}(?:\\u[0-9a-fA-F]{4}){3,}', "Unicode escapes"),
 ]
 
-HIDDEN_UNICODE = re.compile(r'[\u200b\u200c\u200d\ufeff\u202a-\u202e]')
+HIDDEN_UNICODE = re.compile(r'[\u200b\u200c\u200d\ufeff\u202a-\u202e\u2060-\u2064\u180e]')
 
 # ═══════════════════════════════════════════════════════════════════════
 # Statistical Helpers
@@ -104,8 +110,25 @@ def count_unicode_ranges(text):
                     if rng[j] <= cp <= rng[j+1]: counts[name] += 1; break
     return counts
 
+def normalize_unicode(text):
+    """NFKC-normalize text to defeat homoglyph attacks.
+
+    Maps visually similar characters (e.g., Cyrillic 'i' U+0456) to their
+    Latin equivalents before regex matching.
+    """
+    import unicodedata
+    return unicodedata.normalize('NFKC', text)
+
 def match_patterns(content, patterns):
-    return [label for pat, label in patterns if re.search(pat, content)]
+    normalized = normalize_unicode(content)
+    check_normalized = (normalized != content)
+    results = []
+    for pat, label in patterns:
+        if re.search(pat, content):
+            results.append(label)
+        elif check_normalized and re.search(pat, normalized):
+            results.append(label)
+    return results
 
 # ═══════════════════════════════════════════════════════════════════════
 # Guardrails AI Validators (registered only when framework is available)
@@ -150,7 +173,8 @@ def register_validators():
             if re.search(r'[01]{32,}', value.replace(' ','')): f.append("Binary encoding")
             for m in re.finditer(r'[A-Za-z0-9+/]{40,}={0,2}', value): f.append(f"Base64 blob ({len(m.group())}ch)")
             for line in value.split('\n'):
-                if len(line.strip()) > 80 and shannon_entropy(line.strip()) > 5.5:
+                stripped = line.strip()
+                if len(stripped) > 40 and shannon_entropy(stripped) > 5.5:
                     f.append("High-entropy segment"); break
             if not f: return PassResult()
             escalated = self._mem
@@ -162,16 +186,22 @@ def register_validators():
     @register_validator(name="enclaive/foreign-script-detector", data_type="string")
     class ForeignScriptDetector(Validator):
         """Foreign scripts in Bash/code context."""
-        def __init__(self, **kw): super().__init__(**kw)
+        def __init__(self, **kw):
+            super().__init__(**kw)
+            allowed = os.environ.get('ENCLAIVE_ALLOWED_SCRIPTS', '')
+            self._allowed = set(s.strip().lower() for s in allowed.split(',') if s.strip())
         def _validate(self, value, metadata=None):
             if len(value) < 15: return PassResult()
             f = []; counts = count_unicode_ranges(value)
             for key, name, thr in [('katakana','Katakana',3),('hiragana','Hiragana',3),
                 ('cyrillic','Cyrillic',5),('arabic','Arabic',3),('thai','Thai',3),
                 ('devanagari','Devanagari',3),('hangul','Hangul',3),('runic','Runic',2),('ogham','Ogham',2)]:
+                if key in self._allowed:
+                    continue
                 if counts.get(key,0) >= thr: f.append(f"{name} ({counts[key]}ch)")
-            cjk = counts.get('cjk_unified',0)
-            if 3 <= cjk <= 20 and cjk/len(value) > 0.02: f.append(f"CJK ({cjk}ch)")
+            if 'cjk_unified' not in self._allowed:
+                cjk = counts.get('cjk_unified',0)
+                if 3 <= cjk <= 20 and cjk/len(value) > 0.02: f.append(f"CJK ({cjk}ch)")
             return FailResult(error_message=f"Foreign script: {'; '.join(f)}") if f else PassResult()
 
     @register_validator(name="enclaive/acrostic-detector", data_type="string")

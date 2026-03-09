@@ -89,6 +89,16 @@ TIER2_PATTERNS=(
     '(^|/)\.pre-commit-config\.yaml$'
     '(^|/)/etc/sandbox-guards/'
     '(^|/)/run/secrets/'
+    '(^|/)\.env(\.|$)'
+    '(^|/)Makefile$'
+    '(^|/)Justfile$'
+    '(^|/)\.github/workflows/'
+    '(^|/)\.gitlab-ci\.yml$'
+    '(^|/)\.circleci/'
+    '(^|/)Jenkinsfile$'
+    '(^|/)\.profile$'
+    '(^|/)\.bashrc$'
+    '(^|/)\.zshrc$'
 )
 
 for pattern in "${TIER2_PATTERNS[@]}"; do

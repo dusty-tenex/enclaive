@@ -22,5 +22,11 @@ if RESP=$(curl -sf --max-time 5 -X POST "${SIDECAR}/guards/exfil_guard/validate"
     exit 0
 fi
 
+# If REQUIRE_SIDECAR is set, do not fall back to inline
+if [ "${GUARDRAILS_REQUIRE_SIDECAR:-1}" = "1" ]; then
+    echo "[GUARD] EXFIL GUARD: Sidecar unreachable and GUARDRAILS_REQUIRE_SIDECAR=1 — blocking" >&2
+    exit 2
+fi
+
 echo "$INPUT" | python3 "${SCRIPT_DIR}/security_guard.py" --mode exfil
 exit $?

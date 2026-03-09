@@ -7,6 +7,33 @@ set -euo pipefail
 [ -f /etc/sandbox-guards/bypass-memory-guard ] && exit 0
 INPUT=$(cat)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Only check memory-relevant files (structured tools provide reliable paths)
+TOOL=$(echo "$INPUT" | jq -r '.tool_name')
+case "$TOOL" in
+    Write|Edit|MultiEdit)
+        FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // empty')
+        if [ -n "$FILE_PATH" ]; then
+            BASENAME=$(basename "$FILE_PATH")
+            case "$BASENAME" in
+                CLAUDE.md|RALPH.md|progress.md|MEMORY.md|SOUL.md) ;;  # memory file — check it
+                *)
+                    # Check for .claude/agents/*/memory/ or .claude/skills/*.md
+                    case "$FILE_PATH" in
+                        *.claude/agents/*/memory/*|*.claude/skills/*.md) ;;  # memory file — check it
+                        *) exit 0 ;;  # not a memory file — skip
+                    esac
+                    ;;
+            esac
+        fi
+        ;;
+    Bash)
+        # For Bash, the Python fallback handles path detection
+        # Let it through to the sidecar/fallback for full analysis
+        ;;
+    *) exit 0 ;;
+esac
+
 SIDECAR="${GUARDRAILS_SIDECAR_URL:-http://localhost:8000}"
 
 # Try sidecar first (fast path: ~50ms, tamper-resistant)
@@ -24,7 +51,7 @@ if RESP=$(curl -sf --max-time 5 -X POST "${SIDECAR}/guards/memory_guard/validate
 fi
 
 # If REQUIRE_SIDECAR is set, do not fall back to inline (A-SEC-3)
-if [ "${GUARDRAILS_REQUIRE_SIDECAR:-}" = "1" ]; then
+if [ "${GUARDRAILS_REQUIRE_SIDECAR:-1}" = "1" ]; then
     echo "[GUARD] GUARD: Sidecar unreachable and GUARDRAILS_REQUIRE_SIDECAR=1 — blocking" >&2
     exit 2
 fi
