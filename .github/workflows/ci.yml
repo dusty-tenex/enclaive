@@ -58,7 +58,7 @@ jobs:
           GUARDRAILS_TOKEN: ${{ secrets.GUARDRAILS_TOKEN }}
         run: |
           if [ -n "$GUARDRAILS_TOKEN" ]; then
-            guardrails configure --token "$GUARDRAILS_TOKEN" --disable-metrics --no-remote-inferencing
+            guardrails configure --token "$GUARDRAILS_TOKEN" --disable-metrics --disable-remote-inferencing
             guardrails hub install hub://guardrails/secrets_present --quiet
             guardrails hub install hub://guardrails/guardrails_pii --quiet
             guardrails hub install hub://guardrails/detect_jailbreak --quiet
