@@ -126,14 +126,16 @@ jobs:
           DOCKER_BUILDKIT=1 docker compose build guardrails-sidecar
 
       - name: Start sidecar
-        run: docker compose up -d guardrails-sidecar
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d guardrails-sidecar
 
       - name: Wait for sidecar health
         run: |
-          echo "Waiting for sidecar to start (workers take ~30s to boot)..."
+          # CI override adds default bridge network so port publishing works
+          # (sandbox-net is internal:true, which blocks host access in production)
+          echo "Waiting for sidecar to start (workers take ~30-40s to boot)..."
           for i in $(seq 1 60); do
             if curl -sf http://localhost:8000/health-check > /dev/null 2>&1; then
-              echo "Sidecar is healthy (after ${i}s)"
+              echo "Sidecar is healthy (after $((i * 2))s)"
               exit 0
             fi
             if [ $((i % 10)) -eq 0 ]; then
@@ -142,13 +144,8 @@ jobs:
             sleep 2
           done
           echo "Sidecar failed to become healthy"
-          echo "--- Container status ---"
           docker compose ps guardrails-sidecar
-          echo "--- Attempting root endpoint ---"
-          curl -v http://localhost:8000/ 2>&1 || true
-          echo "--- Attempting health-check endpoint ---"
           curl -v http://localhost:8000/health-check 2>&1 || true
-          echo "--- Container logs ---"
           docker compose logs guardrails-sidecar
           exit 1
 
@@ -160,4 +157,4 @@ jobs:
 
       - name: Teardown
         if: always()
-        run: docker compose down
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down
