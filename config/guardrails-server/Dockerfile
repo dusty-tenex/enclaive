@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir \
     "rich<14.0.0" \
     detect-secrets==1.5.0 \
     gunicorn==22.0.0 \
+    uvicorn==0.34.0 \
     transformers==4.47.0 \
     safetensors==0.4.5 && \
     pip install --no-cache-dir \
@@ -66,12 +67,11 @@ USER guardrails
 
 EXPOSE 8000
 
-# Production: warmup models then start gunicorn with 2 workers (CPU-bound validation)
+# Production: warmup models then start gunicorn with uvicorn ASGI workers
 # Dev: guardrails start --config config.py
 CMD python3 /app/warmup.py && gunicorn \
     --bind 0.0.0.0:8000 \
     --timeout 30 \
     --workers 2 \
-    --worker-class gthread \
-    --threads 4 \
+    --worker-class uvicorn.workers.UvicornWorker \
     "guardrails_api.app:create_app(None, 'config.py')"
