@@ -69,6 +69,8 @@ The agent sends source code, secrets, or other sensitive data to an external end
 | DNS exfiltration (dig/nslookup with data in subdomain) | L5: exfil-guard (DNS patterns) | Shell command substitution can break regex match |
 | /dev/tcp bash built-in | L5: exfil-guard (/dev/tcp pattern), L2: raw TCP blocked | None if network deny is configured |
 | Clipboard utilities (pbcopy, xclip, xsel, wl-copy) | L5: exfil-guard (clipboard utility patterns) | None |
+| SCP/rsync file transfer | L5: exfil-guard (scp, rsync to remote host patterns), L2: raw TCP blocked | None if network deny is configured |
+| SSH reverse tunnel | L5: exfil-guard (ssh -R pattern), L2: raw TCP blocked | None if network deny is configured |
 
 ### A3: Prompt Injection
 
@@ -116,7 +118,7 @@ The agent obfuscates payloads to evade pattern matching.
 | JSFuck ([]()!+ only) | L5: EncodingDetector (JSFuck pattern) | None for standard JSFuck |
 | Braille Unicode encoding | L5: EncodingDetector (Braille block detection) | None |
 | Binary encoding (strings of 0/1) | L5: EncodingDetector (32+ consecutive binary digits) | Short sequences below threshold |
-| Foreign script mixing (Cyrillic in Bash) | L5: ForeignScriptDetector (flags 3+ foreign chars in code context, configurable via `ENCLAIVE_ALLOWED_SCRIPTS` env var) | Low counts below threshold |
+| Foreign script mixing (Cyrillic in Bash) | L5: ForeignScriptDetector (flags 3+ foreign chars in code context, configurable via `/etc/sandbox-guards/enclaive.conf` or `ENCLAIVE_ALLOWED_SCRIPTS` env var) | Low counts below threshold |
 | Encoding + network command (escalation) | L5: EncodingDetector escalates to P0 when encoding is detected alongside curl/wget/nc | Encoding without network command is P1 (warn only) |
 
 ### A6: Steganography
@@ -148,7 +150,7 @@ A compromised iteration writes malicious instructions to state files that affect
 
 | Attack Vector | Mitigations | Residual Risk |
 |---------------|-------------|---------------|
-| Modify CLAUDE.md between sessions | L7: memory-integrity.sh checksums at SessionStart | Attacker with host access (outside threat model) |
+| Modify CLAUDE.md between sessions | L7: memory-integrity.sh checksums at SessionStart, blocks (exit 2) on SUSPICIOUS classification by Haiku | Attacker with host access (outside threat model) |
 | Modify progress.md during autonomous loop | L5: memory-guard screens writes to AI instruction files for injection patterns | Subtle instruction rewording that passes regex |
 | Poisoned iteration reads already-modified file | L7: checksums detect inter-session changes, L5: memory-guard catches writes | **Known gap.** Intra-session reads of files poisoned earlier in the same session are not screened |
 
@@ -184,7 +186,12 @@ The sidecar architecture means the agent cannot disable its own guards:
 - Sidecar runs as non-root user `guardrails`
 - Hook scripts are fail-closed: unexpected sidecar responses block the action
 - `GUARDRAILS_REQUIRE_SIDECAR` defaults to `1` (fail-closed by default), disabling inline fallback entirely
-- Audit logs written to `/var/log/enclaive/` (a separate Docker volume), not the workspace — agent cannot delete or tamper with them
+- Security settings (`require_sidecar`, `allowed_scripts`) read from `/etc/sandbox-guards/enclaive.conf` (root-owned, read-only mount) before env var fallback — agent cannot override security config
+- Audit logs written to `/var/log/enclaive/` (a separate Docker volume, root-owned, sticky bit `chmod 1733`), not the workspace — agent can append but cannot delete or tamper with existing logs
+- Canary setup files verified as root-owned before sourcing — prevents inter-restart poisoning
+- Memory integrity check (memory-integrity.sh) blocks session start (exit 2) when Haiku classifies inter-session changes as SUSPICIOUS
+- JSON parse failures in security_guard.py fail-closed (exit 2) instead of silently allowing
+- Fallback to standalone regex engine is logged to stderr for audit visibility
 
 The microVM sandbox is the hard security boundary. Everything else is defense-in-depth.
 
