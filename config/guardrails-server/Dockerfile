@@ -9,6 +9,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir \
     guardrails-ai==0.9.1 \
     guardrails-api==0.2.1 \
+    "rich<14.0.0" \
     detect-secrets==1.5.0 \
     gunicorn==22.0.0 \
     transformers==4.47.0 \
