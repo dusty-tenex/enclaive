@@ -8,14 +8,18 @@ Uses guardrails-ai Guard pipeline when available, regex fallback when not.
 Modes: memory | exfil | inbound | write
 Exit:  0 = allow, 2 = block
 """
-import sys, os, re, json, datetime, argparse
+import sys
+import os
+import re
+import json
+import datetime
+import argparse
 
 # Import shared detection logic (single source of truth)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from validators import (
+from validators import (  # noqa: E402
     INJECTION_PATTERNS, EXFIL_PATTERNS, CREDENTIAL_PATTERNS, PII_PATTERNS,
     ENCODING_PATTERNS, HIDDEN_UNICODE, match_patterns, count_unicode_ranges,
-    shannon_entropy,
 )
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -44,7 +48,7 @@ if HAS_GUARDRAILS:
         except Exception:
             pass
 
-from guard_definitions import build_guard_from_pipeline
+from guard_definitions import build_guard_from_pipeline  # noqa: E402
 
 def build_guard(mode):
     if not HAS_GUARDRAILS: return None

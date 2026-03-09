@@ -1,0 +1,4 @@
+[lint]
+# E701/E702: one-liner style is intentional in dense pattern-matching validators
+# E741: short variable names (f, l) used as local iterators in compact validators
+ignore = ["E701", "E702", "E741"]
