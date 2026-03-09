@@ -157,6 +157,86 @@ def _load_require_sidecar():
         pass
     return os.environ.get('GUARDRAILS_REQUIRE_SIDECAR', '1')
 
+def _load_ml_config():
+    """Load ML security settings from root-owned config file.
+
+    Config file at /etc/sandbox-guards/enclaive.conf is read-only mounted
+    from the host. Falls back to env vars for development environments.
+
+    Returns a dict with keys: ml_sentinel_v2, ml_prompt_guard_2,
+    bash_ast_parser, ml_sentinel_threshold, ml_prompt_guard_threshold,
+    ml_ensemble_mode.
+    """
+    import sys
+
+    # Defaults (secure-by-default)
+    defaults = {
+        'ml_sentinel_v2': True,
+        'ml_prompt_guard_2': True,
+        'bash_ast_parser': True,
+        'ml_sentinel_threshold': 0.85,
+        'ml_prompt_guard_threshold': 0.90,
+        'ml_ensemble_mode': 'block',
+    }
+
+    # Config key -> (conf file key, env var, type)
+    key_map = {
+        'ml_sentinel_v2':          ('ml_sentinel_v2',          'ENCLAIVE_ML_SENTINEL_V2',          'bool'),
+        'ml_prompt_guard_2':       ('ml_prompt_guard_2',       'ENCLAIVE_ML_PROMPT_GUARD_2',       'bool'),
+        'bash_ast_parser':         ('bash_ast_parser',         'ENCLAIVE_BASH_AST_PARSER',         'bool'),
+        'ml_sentinel_threshold':   ('ml_sentinel_threshold',   'ENCLAIVE_ML_SENTINEL_THRESHOLD',   'float'),
+        'ml_prompt_guard_threshold': ('ml_prompt_guard_threshold', 'ENCLAIVE_ML_PROMPT_GUARD_THRESHOLD', 'float'),
+        'ml_ensemble_mode':        ('ml_ensemble_mode',        'ENCLAIVE_ML_ENSEMBLE_MODE',        'str'),
+    }
+
+    # Try config file first
+    conf_path = '/etc/sandbox-guards/enclaive.conf'
+    file_values = {}
+    try:
+        with open(conf_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if '=' not in line:
+                    continue
+                k, v = line.split('=', 1)
+                file_values[k.strip()] = v.strip()
+    except (FileNotFoundError, PermissionError):
+        pass
+
+    result = {}
+    for key, (conf_key, env_var, typ) in key_map.items():
+        raw = file_values.get(conf_key)
+        if raw is None:
+            raw = os.environ.get(env_var)
+
+        if raw is None:
+            result[key] = defaults[key]
+            continue
+
+        if typ == 'bool':
+            result[key] = (raw != '0')
+        elif typ == 'float':
+            try:
+                result[key] = float(raw)
+            except ValueError:
+                result[key] = defaults[key]
+        elif typ == 'str':
+            if raw in ('block', 'pass'):
+                result[key] = raw
+            else:
+                result[key] = defaults[key]
+
+    # Warn if any threshold is dangerously high
+    for tkey in ('ml_sentinel_threshold', 'ml_prompt_guard_threshold'):
+        if result[tkey] > 0.95:
+            print(f"WARNING: {tkey}={result[tkey]} exceeds 0.95 -- may cause false negatives", file=sys.stderr)
+
+    return result
+
+_ML_CONFIG = _load_ml_config()
+
 def match_patterns(content, patterns):
     normalized = normalize_unicode(content)
     check_normalized = (normalized != content)

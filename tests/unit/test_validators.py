@@ -34,6 +34,7 @@ from validators import (
     shannon_entropy,
     count_unicode_ranges,
     register_validators,
+    _load_ml_config,
 )
 
 
@@ -551,3 +552,91 @@ class TestRegisterValidators:
         result = detector._validate(text)
         assert hasattr(result, 'error_message')
         assert "Hex acrostic" in result.error_message
+
+
+# =========================================================================
+# ML Config Loading
+# =========================================================================
+class TestMLConfigLoading:
+    """Tests for _load_ml_config() ML settings loader."""
+
+    def test_load_ml_config_defaults(self, monkeypatch):
+        """Verify secure defaults when no config file or env vars exist."""
+        # Clear all ML-related env vars
+        for var in [
+            'ENCLAIVE_ML_SENTINEL_V2', 'ENCLAIVE_ML_PROMPT_GUARD_2',
+            'ENCLAIVE_BASH_AST_PARSER', 'ENCLAIVE_ML_SENTINEL_THRESHOLD',
+            'ENCLAIVE_ML_PROMPT_GUARD_THRESHOLD', 'ENCLAIVE_ML_ENSEMBLE_MODE',
+        ]:
+            monkeypatch.delenv(var, raising=False)
+
+        config = _load_ml_config()
+
+        assert config['ml_sentinel_v2'] is True
+        assert config['ml_prompt_guard_2'] is True
+        assert config['bash_ast_parser'] is True
+        assert config['ml_sentinel_threshold'] == 0.85
+        assert config['ml_prompt_guard_threshold'] == 0.90
+        assert config['ml_ensemble_mode'] == 'block'
+
+    def test_load_ml_config_from_env(self, monkeypatch):
+        """Verify env var fallback reads and parses correctly."""
+        monkeypatch.setenv('ENCLAIVE_ML_SENTINEL_V2', '0')
+        monkeypatch.setenv('ENCLAIVE_ML_PROMPT_GUARD_2', '1')
+        monkeypatch.setenv('ENCLAIVE_BASH_AST_PARSER', '0')
+        monkeypatch.setenv('ENCLAIVE_ML_SENTINEL_THRESHOLD', '0.75')
+        monkeypatch.setenv('ENCLAIVE_ML_PROMPT_GUARD_THRESHOLD', '0.80')
+        monkeypatch.setenv('ENCLAIVE_ML_ENSEMBLE_MODE', 'pass')
+
+        config = _load_ml_config()
+
+        assert config['ml_sentinel_v2'] is False
+        assert config['ml_prompt_guard_2'] is True
+        assert config['bash_ast_parser'] is False
+        assert config['ml_sentinel_threshold'] == 0.75
+        assert config['ml_prompt_guard_threshold'] == 0.80
+        assert config['ml_ensemble_mode'] == 'pass'
+
+    def test_load_ml_config_threshold_warning(self, monkeypatch, capsys):
+        """Verify warning on threshold > 0.95."""
+        monkeypatch.setenv('ENCLAIVE_ML_SENTINEL_THRESHOLD', '0.99')
+        # Clear others to use defaults
+        for var in [
+            'ENCLAIVE_ML_SENTINEL_V2', 'ENCLAIVE_ML_PROMPT_GUARD_2',
+            'ENCLAIVE_BASH_AST_PARSER', 'ENCLAIVE_ML_PROMPT_GUARD_THRESHOLD',
+            'ENCLAIVE_ML_ENSEMBLE_MODE',
+        ]:
+            monkeypatch.delenv(var, raising=False)
+
+        config = _load_ml_config()
+
+        assert config['ml_sentinel_threshold'] == 0.99
+        captured = capsys.readouterr()
+        assert 'WARNING' in captured.err
+        assert 'ml_sentinel_threshold' in captured.err
+
+    def test_load_ml_config_invalid_float_uses_default(self, monkeypatch):
+        """Invalid float value falls back to default."""
+        monkeypatch.setenv('ENCLAIVE_ML_SENTINEL_THRESHOLD', 'notanumber')
+        for var in [
+            'ENCLAIVE_ML_SENTINEL_V2', 'ENCLAIVE_ML_PROMPT_GUARD_2',
+            'ENCLAIVE_BASH_AST_PARSER', 'ENCLAIVE_ML_PROMPT_GUARD_THRESHOLD',
+            'ENCLAIVE_ML_ENSEMBLE_MODE',
+        ]:
+            monkeypatch.delenv(var, raising=False)
+
+        config = _load_ml_config()
+        assert config['ml_sentinel_threshold'] == 0.85
+
+    def test_load_ml_config_invalid_ensemble_mode_uses_default(self, monkeypatch):
+        """Invalid ensemble mode falls back to default 'block'."""
+        monkeypatch.setenv('ENCLAIVE_ML_ENSEMBLE_MODE', 'invalid')
+        for var in [
+            'ENCLAIVE_ML_SENTINEL_V2', 'ENCLAIVE_ML_PROMPT_GUARD_2',
+            'ENCLAIVE_BASH_AST_PARSER', 'ENCLAIVE_ML_SENTINEL_THRESHOLD',
+            'ENCLAIVE_ML_PROMPT_GUARD_THRESHOLD',
+        ]:
+            monkeypatch.delenv(var, raising=False)
+
+        config = _load_ml_config()
+        assert config['ml_ensemble_mode'] == 'block'
