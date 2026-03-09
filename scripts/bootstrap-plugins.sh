@@ -18,6 +18,7 @@ fi
 echo "━━━ Plugin Bootstrap ━━━"
 
 AUDIT_POLICY=$(jq -r '.audit.policy // "fail-closed"' "$MANIFEST")
+export AUDIT_POLICY
 AUDIT_API_URL=$(jq -r '.audit.api // "local"' "$MANIFEST")
 export SKILLAUDIT_API="$AUDIT_API_URL"
 
