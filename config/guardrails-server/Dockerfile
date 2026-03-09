@@ -1,7 +1,7 @@
 # Guardrails AI sidecar -- runs the validation server on port 8000.
 # Models and validators loaded once at startup, warm for every request.
 # Read-only filesystem in production: the agent cannot tamper with it.
-FROM python:3.12-slim@sha256:2be8daddfd700d5336eb090a2bc6c65b8fc5e60ead845ef7e4862529d8c129c4
+FROM python:3.12-slim@sha256:ccc7089399c8bb65dd1fb3ed6d55efa538a3f5e7fca3f5988ac3b5b87e593bf0
 
 WORKDIR /app
 
@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
 RUN --mount=type=secret,id=guardrails_token \
     GUARDRAILS_TOKEN=$(cat /run/secrets/guardrails_token 2>/dev/null) && \
     if [ -n "$GUARDRAILS_TOKEN" ]; then \
-      guardrails configure --token "$GUARDRAILS_TOKEN" --enable-metrics false && \
+      guardrails configure --token "$GUARDRAILS_TOKEN" --disable-metrics --disable-remote-inferencing && \
       guardrails hub install hub://guardrails/secrets_present --quiet && \
       guardrails hub install hub://guardrails/guardrails_pii --quiet && \
       guardrails hub install hub://guardrails/detect_jailbreak --quiet && \
