@@ -160,7 +160,9 @@ def main():
     parser.add_argument("--mode", choices=["memory","exfil","inbound","write"], required=True)
     args = parser.parse_args()
     try: hook = json.loads(sys.stdin.read())
-    except: sys.exit(0)
+    except Exception:
+        print("[GUARD] SECURITY GUARD: Failed to parse hook input JSON — blocking (fail-closed)", file=sys.stderr)
+        sys.exit(2)
     # Bypass only via host-controlled read-only mount (agent cannot write to this path)
     bypass_files = {"memory": "bypass-memory-guard", "exfil": "bypass-exfil-guard",
                     "write": "bypass-write-guard", "inbound": "bypass-inbound-guard"}
@@ -172,6 +174,8 @@ def main():
 
     blocked, reason = False, ""
     guard = build_guard(args.mode)
+    if guard is None:
+        print(f"[WARN] SECURITY GUARD [{args.mode.upper()}]: guardrails-ai unavailable, using standalone regex fallback", file=sys.stderr)
     if guard is not None:
         try:
             result = guard.validate(content)

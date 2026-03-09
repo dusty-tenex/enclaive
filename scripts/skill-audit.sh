@@ -14,7 +14,7 @@ _scan_url() {
     local url="$1"
     curl -sf --max-time 15 -X POST "${AUDIT_API}/scan/url" \
         -H "Content-Type: application/json" \
-        -d "{\"url\": \"$url\"}" 2>/dev/null || return 1
+        -d "$(jq -n --arg u "$url" '{url: $u}')" 2>/dev/null || return 1
 }
 
 _scan_content() {
@@ -28,7 +28,9 @@ _check_risk() {
     local result="$1" name="$2"
     local level
     level=$(echo "$result" | jq -r '.risk_level // .riskLevel // "unknown"' 2>/dev/null)
-    local logfile="${AUDIT_LOG}/$(date +%Y%m%d-%H%M%S%N)-$$-${name}.json"
+    # Sanitize name to prevent path traversal in log filename
+    local safe_name="${name//\//_}"
+    local logfile="${AUDIT_LOG}/$(date +%Y%m%d-%H%M%S%N)-$$-${safe_name}.json"
     echo "$result" > "$logfile"
     if echo "$level" | grep -qiE '(critical|high)'; then
         echo "  [ALERT] BLOCKED: $name → $level" >&2
@@ -62,7 +64,7 @@ audit_path() {
         local content
         content=$(cat "$skill_file")
         if [ "$AUDIT_API" = "local" ]; then
-            if echo "$content" | grep -PqE '[\x{200B}\x{200C}\x{200D}\x{FEFF}\x{202A}-\x{202E}]' 2>/dev/null; then
+            if echo "$content" | python3 -c "import sys; exit(0 if any(ord(c) in {0x200b,0x200c,0x200d,0xfeff,0x180e}|set(range(0x202a,0x202f))|set(range(0x2060,0x2065)) for c in sys.stdin.read()) else 1)" 2>/dev/null; then
                 echo "  [ALERT] P0: Hidden Unicode in ${name}:$(basename "$skill_file")" >&2
                 blocked=$((blocked + 1)); continue
             fi
@@ -74,7 +76,7 @@ audit_path() {
                 echo "  [ALERT] P0: Credential access in ${name}:$(basename "$skill_file")" >&2
                 blocked=$((blocked + 1)); continue
             fi
-            if echo "$content" | grep -qiE '(nc -|bash -i|/dev/tcp|reverse.shell|mkfifo)'; then
+            if echo "$content" | grep -qiE '(nc -|ncat |bash -i|/dev/tcp|/dev/udp|reverse.shell|mkfifo|socat\s)'; then
                 echo "  [ALERT] P0: Reverse shell pattern in ${name}:$(basename "$skill_file")" >&2
                 blocked=$((blocked + 1)); continue
             fi
@@ -99,7 +101,7 @@ audit_path() {
         local content
         content=$(cat "$script_file")
         if [ "$AUDIT_API" = "local" ]; then
-            if echo "$content" | grep -qiE '(nc -|bash -i|/dev/tcp|curl.*\|.*sh|wget.*\|.*sh)'; then
+            if echo "$content" | grep -qiE '(nc -|ncat |bash -i|/dev/tcp|/dev/udp|socat\s|curl.*\|.*sh|wget.*\|.*sh)'; then
                 echo "  [ALERT] P0: Dangerous pattern in ${name}:$(basename "$script_file")" >&2
                 blocked=$((blocked + 1))
             fi

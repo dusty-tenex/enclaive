@@ -47,6 +47,9 @@ EXFIL_PATTERNS = [
     (r'curl\s+.*-H\s+["\']?[^"\']*\$', "curl with variable in header"),
     (r'git\s+commit\s+.*--no-verify', "git commit skipping hooks"),
     (r'(?:pbcopy|xclip|xsel|wl-copy)', "Clipboard exfiltration utility"),
+    (r'scp\s+\S+\s+\S+@\S+:', "SCP file transfer to remote host"),
+    (r'rsync\s+.*\S+@\S+:', "rsync to remote host"),
+    (r'ssh\s+.*-R\s+\d+:', "SSH reverse tunnel"),
 ]
 
 CREDENTIAL_PATTERNS = [
