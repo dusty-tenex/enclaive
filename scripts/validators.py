@@ -385,12 +385,57 @@ def register_validators():
                 pass
             return PassResult()
 
+    @register_validator(name="enclaive/prompt-guard-2-detector", data_type="string")
+    class PromptGuard2Detector(Validator):
+        """ML-based injection detection using Meta Prompt Guard 2 86M. 8 languages."""
+        _pipeline = None
+        _load_attempted = False
+
+        def __init__(self, **kw):
+            super().__init__(**kw)
+
+        @classmethod
+        def _get_pipeline(cls):
+            if cls._load_attempted:
+                return cls._pipeline
+            cls._load_attempted = True
+            try:
+                from transformers import pipeline
+                cls._pipeline = pipeline(
+                    "text-classification",
+                    model="meta-llama/Prompt-Guard-2-86M",
+                    device=-1,
+                    truncation=True,
+                    max_length=512,
+                )
+            except Exception:
+                cls._pipeline = None
+            return cls._pipeline
+
+        def _validate(self, value, metadata=None):
+            if not _ML_CONFIG.get('ml_prompt_guard_2', True):
+                return PassResult()
+            pipe = self._get_pipeline()
+            if pipe is None:
+                return PassResult()
+            try:
+                result = pipe(value[:512])[0]
+                threshold = _ML_CONFIG.get('ml_prompt_guard_threshold', 0.90)
+                if result['label'] == 'INJECTION' and result['score'] >= threshold:
+                    return FailResult(
+                        error_message=f"ML Prompt Guard 2: injection detected (score={result['score']:.3f}, threshold={threshold})"
+                    )
+            except Exception:
+                pass
+            return PassResult()
+
     return {
         'ExfilDetector': ExfilDetector,
         'EncodingDetector': EncodingDetector,
         'ForeignScriptDetector': ForeignScriptDetector,
         'AcrosticDetector': AcrosticDetector,
         'SentinelV2Detector': SentinelV2Detector,
+        'PromptGuard2Detector': PromptGuard2Detector,
     }
 
 # Auto-register on import
