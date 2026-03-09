@@ -1,6 +1,7 @@
 name: AI-Powered Tests
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
 
