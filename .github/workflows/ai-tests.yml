@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ai-tests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ai-tests:
     if: github.repository == 'dusty-tenex/enclaive'

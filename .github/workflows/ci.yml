@@ -11,6 +11,11 @@ on:
 permissions:
   contents: read
 
+# Cancel redundant runs for the same branch/PR
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
