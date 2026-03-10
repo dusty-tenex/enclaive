@@ -1,6 +1,16 @@
 import { execa } from 'execa';
 import { existsSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join, basename, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Resolve the enclAIve repo root (parent of cli/).
+ */
+export function repoRoot() {
+  return join(__dirname, '..', '..');
+}
 
 // Sidecar container config
 const SIDECAR_CONTAINER = 'guardrails-sidecar';
@@ -128,6 +138,61 @@ export async function destroySandbox(opts = {}) {
   const name = opts.name || sandboxName(cwd);
   await execa('docker', ['sandbox', 'stop', name], { reject: false, stdio: 'pipe' });
   return execa('docker', ['sandbox', 'rm', name], { reject: false, stdio: 'pipe' });
+}
+
+// -- Compose orchestration ------------------------------------
+
+/**
+ * Build all services via docker compose.
+ */
+export async function composeBuild(opts = {}) {
+  const root = repoRoot();
+  const env = { ...process.env };
+  if (opts.projectDir) env.PROJECT_DIR = opts.projectDir;
+  return execa('docker', ['compose', 'build'], {
+    cwd: root,
+    env,
+    stdio: opts.stdio || 'inherit',
+  });
+}
+
+/**
+ * Start services via docker compose.
+ * If projectDir is provided, it is mounted at /workspace in the sandbox.
+ */
+export async function composeUp(opts = {}) {
+  const root = repoRoot();
+  const env = { ...process.env };
+  if (opts.projectDir) env.PROJECT_DIR = opts.projectDir;
+  const services = opts.services || [];
+  return execa('docker', ['compose', 'up', '-d', ...services], {
+    cwd: root,
+    env,
+    stdio: opts.stdio || 'inherit',
+  });
+}
+
+/**
+ * Stop services via docker compose.
+ */
+export async function composeDown(opts = {}) {
+  const root = repoRoot();
+  return execa('docker', ['compose', 'down'], {
+    cwd: root,
+    stdio: opts.stdio || 'inherit',
+  });
+}
+
+/**
+ * Exec into a compose service.
+ */
+export async function composeExec(service, command, opts = {}) {
+  const root = repoRoot();
+  const args = ['compose', 'exec', service, ...(Array.isArray(command) ? command : [command])];
+  return execa('docker', args, {
+    cwd: root,
+    stdio: opts.stdio || 'inherit',
+  });
 }
 
 // -- Status ---------------------------------------------------
