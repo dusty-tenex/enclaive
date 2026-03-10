@@ -3,8 +3,6 @@
 import { Command } from 'commander';
 import { resolve, join } from 'node:path';
 import {
-  buildSidecar, startSidecar, stopSidecar, startSandbox,
-  execInSandbox, stopSandbox, destroySandbox, sandboxName,
   composeBuild, composeUp, composeDown, composeExec,
 } from '../src/docker.js';
 import { initProject } from '../src/init.js';
