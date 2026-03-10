@@ -32,4 +32,4 @@ RUN chmod +x /home/sandbox/entrypoint.sh \
     && chmod +x /home/sandbox/.sandbox-scripts/*.sh 2>/dev/null || true
 
 ENTRYPOINT ["/home/sandbox/entrypoint.sh"]
-CMD ["bash"]
+CMD ["sleep", "infinity"]
