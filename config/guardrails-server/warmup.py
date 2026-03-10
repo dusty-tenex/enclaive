@@ -10,7 +10,7 @@ def warmup():
 
     try:
         from transformers import pipeline
-        sentinel = pipeline("text-classification", model="protectai/sentinel-v2", device=-1, truncation=True, max_length=512)
+        sentinel = pipeline("text-classification", model="protectai/deberta-v3-base-prompt-injection-v2", device=-1, truncation=True, max_length=512)
         sentinel("test warmup")
         print(f"[warmup] Sentinel v2 loaded ({time.time()-start:.1f}s)", flush=True)
     except Exception as e:

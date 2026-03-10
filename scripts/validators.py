@@ -372,7 +372,7 @@ def register_validators():
                 from transformers import pipeline
                 cls._pipeline = pipeline(
                     "text-classification",
-                    model="protectai/sentinel-v2",
+                    model="protectai/deberta-v3-base-prompt-injection-v2",
                     device=-1,
                     truncation=True,
                     max_length=512,

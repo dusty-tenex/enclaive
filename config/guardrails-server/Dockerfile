@@ -52,8 +52,8 @@ RUN --mount=type=secret,id=guardrails_token \
 RUN --mount=type=secret,id=hf_token \
     HF_TOKEN=$(cat /run/secrets/hf_token 2>/dev/null) && \
     if [ -n "$HF_TOKEN" ]; then \
-      HF_TOKEN="$HF_TOKEN" python3 -c "from transformers import pipeline; pipeline('text-classification', model='protectai/sentinel-v2')" && \
-      echo "[OK] Sentinel v2 model cached" && \
+      HF_TOKEN="$HF_TOKEN" python3 -c "from transformers import pipeline; pipeline('text-classification', model='protectai/deberta-v3-base-prompt-injection-v2')" && \
+      echo "[OK] ProtectAI prompt-injection-v2 model cached" && \
       HF_TOKEN="$HF_TOKEN" python3 -c "from transformers import pipeline; pipeline('text-classification', model='meta-llama/Prompt-Guard-2-86M')" && \
       echo "[OK] Prompt Guard 2 model cached"; \
     else \
