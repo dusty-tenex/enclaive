@@ -44,7 +44,7 @@ export class StatusBarManager implements vscode.Disposable {
         );
         this._item.backgroundColor = undefined;
         this._item.command = "enclaive.start";
-        this._item.tooltip = "enclAIve -- Click to start";
+        this._item.tooltip = "enclaive -- Click to start";
         break;
 
       case "starting":
@@ -54,7 +54,7 @@ export class StatusBarManager implements vscode.Disposable {
           "statusBarItem.warningBackground",
         );
         this._item.command = undefined;
-        this._item.tooltip = "enclAIve -- Starting containers...";
+        this._item.tooltip = "enclaive -- Starting containers...";
         break;
 
       case "active":
@@ -74,7 +74,7 @@ export class StatusBarManager implements vscode.Disposable {
         );
         this._item.command = "enclaive.doctor";
         this._item.tooltip =
-          "enclAIve -- Sidecar unreachable. Click to run doctor.";
+          "enclaive -- Sidecar unreachable. Click to run doctor.";
         break;
     }
   }
@@ -91,7 +91,7 @@ export class StatusBarManager implements vscode.Disposable {
       this._item.text = "$(shield) Sandbox: Active";
     }
 
-    let tooltip = `enclAIve\nSidecar: healthy\nBlocks today: ${blocksToday}`;
+    let tooltip = `enclaive\nSidecar: healthy\nBlocks today: ${blocksToday}`;
     if (lastBlock) {
       tooltip += `\nLast: ${lastBlock.mode} -- ${lastBlock.reason}`;
     }

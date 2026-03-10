@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /**
- * Resolve the enclAIve repo root (parent of cli/).
+ * Resolve the enclaive repo root (parent of cli/).
  */
 export function repoRoot() {
   return join(__dirname, '..', '..');

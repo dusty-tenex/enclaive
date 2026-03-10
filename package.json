@@ -1,12 +1,12 @@
 {
   "name": "enclaive",
   "version": "0.1.0-alpha",
-  "description": "enclAIve -- defense-in-depth security for AI coding assistants",
+  "description": "enclaive -- defense-in-depth security for AI coding assistants",
   "private": true,
   "license": "AGPL-3.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dusty-tenex/enclAIve.git"
+    "url": "https://github.com/dusty-tenex/enclaive.git"
   },
   "keywords": [
     "claude",

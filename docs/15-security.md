@@ -4,7 +4,7 @@
 
 An AI coding assistant with shell access, network access, and file write access can be compromised via prompt injection (from fetched content, malicious plugins, or poisoned instruction files) and then weaponized to steal credentials, exfiltrate code, persist backdoors, or pivot to connected systems.
 
-enclAIve assumes compromise will happen and layers defenses so that no single bypass is catastrophic.
+enclaive assumes compromise will happen and layers defenses so that no single bypass is catastrophic.
 
 ## Defense Layers
 
@@ -19,9 +19,9 @@ enclAIve assumes compromise will happen and layers defenses so that no single by
 |  MCP Gateway (docker mcp secret set) for other credentials.                 |
 +- Layer 4: Write Guard -----------------------------------------------------+
 |  PreToolUse blocks writes to host-executable paths: .git/hooks,             |
-|  .claude/settings.json, .mcp.json. Tier 2: .env, Makefile, Justfile,       |
-|  .github/workflows/, .gitlab-ci.yml, .circleci/, Jenkinsfile,              |
-|  .profile, .bashrc, .zshrc, .npmrc, .husky/.                               |
+|  .claude/settings.json, .mcp.json. Tier 2: .env, .profile, .bashrc,       |
+|  .zshrc, .npmrc, .husky/. Tier 3 (agent-writable, logged): Makefile,      |
+|  Justfile, .github/workflows/, .gitlab-ci.yml, .circleci/, Jenkinsfile.   |
 +- Layer 5: Guardrails Sidecar (tamper-resistant) ----------------------------+
 |  Separate container, read-only filesystem, non-root user.                   |
 |  Hub: SecretsPresent (30+ detectors), GuardrailsPII (ML-based)              |
@@ -104,10 +104,11 @@ The agent writes backdoors to files that execute outside the sandbox (git hooks,
 | Write to .git/hooks/ | L4: write-guard blocks, L1: entrypoint locks .git/hooks as root-owned | None (filesystem + hook guard) |
 | Modify .claude/settings.json | L4: write-guard blocks, L1: entrypoint locks as root-owned | None |
 | Modify .mcp.json | L4: write-guard blocks, L1: entrypoint locks as root-owned | None |
-| Write .github/workflows/ | L4: write-guard blocks | Agent could create workflows via GitHub API if github.com is allowlisted |
-| Modify Makefile, Justfile, .npmrc, .husky/ | L4: write-guard Tier 2 blocks | None for guarded paths |
+| Write .github/workflows/ | L4: write-guard Tier 3 (allowed, logged) | Agent can modify; audit log captures changes |
+| Modify Makefile, Justfile | L4: write-guard Tier 3 (allowed, logged) | Agent can modify; audit log captures changes |
+| Modify .npmrc, .husky/ | L4: write-guard Tier 2 blocks | None for guarded paths |
 | Modify .env | L4: write-guard Tier 2 blocks | None for guarded paths |
-| Modify CI/CD configs (.gitlab-ci.yml, .circleci/, Jenkinsfile) | L4: write-guard Tier 2 blocks | Agent could create CI configs via API if host is allowlisted |
+| Modify CI/CD configs (.gitlab-ci.yml, .circleci/, Jenkinsfile) | L4: write-guard Tier 3 (allowed, logged) | Agent can modify; audit log captures changes |
 | Modify shell profiles (.profile, .bashrc, .zshrc) | L4: write-guard Tier 2 blocks | None for guarded paths |
 | Create new executable in unguarded path | L1: microVM contains blast radius (file only exists in sandbox) | File syncs to host workspace mount |
 

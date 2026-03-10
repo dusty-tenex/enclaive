@@ -1,7 +1,7 @@
 {
   "name": "enclaive",
   "version": "0.1.0",
-  "description": "CLI tool for enclAIve — defense-in-depth for AI coding assistants",
+  "description": "CLI tool for enclaive — defense-in-depth for AI coding assistants",
   "bin": {
     "enclaive": "./bin/enclaive.js"
   },

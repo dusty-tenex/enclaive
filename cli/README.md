@@ -1,6 +1,6 @@
-# enclAIve CLI
+# enclaive CLI
 
-Command-line tool for managing enclAIve environments.
+Command-line tool for managing enclaive environments.
 
 ## Install
 

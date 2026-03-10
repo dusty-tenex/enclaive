@@ -1,4 +1,4 @@
-# enclAIve — Documentation
+# enclaive — Documentation
 
 Defense-in-depth security layers for running Claude Code inside a Docker sandbox. Alpha -- pattern matching catches common payloads but can be bypassed.
 

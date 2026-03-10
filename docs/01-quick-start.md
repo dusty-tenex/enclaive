@@ -3,8 +3,8 @@
 ## Docker Compose (Recommended)
 
 ```bash
-git clone https://github.com/dusty-tenex/enclAIve.git
-cd enclAIve
+git clone https://github.com/dusty-tenex/enclaive.git
+cd enclaive
 cp .env.example .env
 # Edit .env: add ANTHROPIC_API_KEY (required) and GUARDRAILS_TOKEN (recommended)
 
@@ -19,8 +19,8 @@ This starts two containers:
 ## Standalone (No Docker Compose)
 
 ```bash
-git clone https://github.com/dusty-tenex/enclAIve.git
-cd enclAIve
+git clone https://github.com/dusty-tenex/enclaive.git
+cd enclaive
 ./setup.sh ~/my-project
 cd ~/my-project
 claude

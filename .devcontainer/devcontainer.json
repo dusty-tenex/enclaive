@@ -1,5 +1,5 @@
 {
-  "name": "enclAIve",
+  "name": "enclaive",
   "dockerComposeFile": "../docker-compose.yml",
   "service": "sandbox",
   "workspaceFolder": "/workspace",

@@ -45,7 +45,7 @@ export async function printStatus(opts = {}) {
   const logPath = opts.logPath || join(cwd, '.audit-logs', 'security-guard.jsonl');
   const sidecarUrl = opts.sidecarUrl || 'http://localhost:8000/health-check';
 
-  console.log('\n=== enclAIve Status ===\n');
+  console.log('\n=== enclaive Status ===\n');
 
   // Container status
   const status = await containerStatus({ cwd });
@@ -238,7 +238,7 @@ export const doctorChecks = [
  * Returns { passed, failed, warned }.
  */
 export async function runDoctor(opts = {}) {
-  console.log('\n=== enclAIve Doctor ===\n');
+  console.log('\n=== enclaive Doctor ===\n');
 
   let passed = 0;
   let failed = 0;

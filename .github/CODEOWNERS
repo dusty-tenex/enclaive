@@ -1,0 +1,12 @@
+# Require maintainer review for security-sensitive paths
+/.github/                   @dusty-tenex
+/config/guards/             @dusty-tenex
+/config/canary/             @dusty-tenex
+/config/settings.json       @dusty-tenex
+/config/sandbox-entrypoint.sh @dusty-tenex
+/scripts/write-guard.sh     @dusty-tenex
+/scripts/security_guard.py  @dusty-tenex
+/scripts/validators.py      @dusty-tenex
+/docker-compose.yml         @dusty-tenex
+/docker-compose.ci.yml      @dusty-tenex
+/SECURITY.md                @dusty-tenex

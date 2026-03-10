@@ -5,7 +5,7 @@ set -euo pipefail
 
 SIDECAR="${GUARDRAILS_SIDECAR_URL:-http://guardrails-sidecar:8000}"
 
-echo "--- enclAIve ---"
+echo "--- enclaive ---"
 echo ""
 
 # Check sidecar health

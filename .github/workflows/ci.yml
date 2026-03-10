@@ -7,19 +7,28 @@ on:
   pull_request:
     branches: [main]
 
+# Restrict GITHUB_TOKEN to read-only by default
+permissions:
+  contents: read
+
+# Cancel redundant runs for the same branch/PR
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: ShellCheck
-        uses: ludeeus/action-shellcheck@master
+        uses: ludeeus/action-shellcheck@00b27aa7cb85167568cb48a3838b75f4265f2bca # master
         with:
           scandir: scripts/
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
 
@@ -38,15 +47,15 @@ jobs:
     needs: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
 
       - name: Set up Node 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
 
@@ -93,14 +102,17 @@ jobs:
 
   integration-tests:
     needs: unit-tests
+    # Skip on fork PRs -- integration tests require secrets (GUARDRAILS_TOKEN,
+    # FIXTURES_REPO_TOKEN) that are not available to fork pull requests.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Checkout test fixtures
         id: fixtures
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           repository: dusty-tenex/enclaive-test-fixtures
           path: test-fixtures
@@ -112,7 +124,7 @@ jobs:
         run: echo "::warning::Test fixtures repo unavailable -- fixture-driven integration tests will be skipped"
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
 

@@ -9,7 +9,7 @@ SCRIPTS_SRC="/home/sandbox/.sandbox-scripts"
 CONFIG_SRC="/home/sandbox/.sandbox-config"
 SIDECAR="${GUARDRAILS_SIDECAR_URL:-http://guardrails-sidecar:8000}"
 
-echo "━━━ enclAIve ━━━"
+echo "━━━ enclaive ━━━"
 
 # ── Load API key from Docker secret if available ─────────────────────
 if [ -f /run/secrets/anthropic_api_key ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
@@ -45,7 +45,7 @@ done
 if [ -n "$SIDECAR" ]; then
     echo "  Waiting for guardrails sidecar at ${SIDECAR}..."
     for i in $(seq 1 30); do
-        if curl -sf "${SIDECAR}/health" >/dev/null 2>&1; then
+        if curl -sf "${SIDECAR}/health-check" >/dev/null 2>&1; then
             echo "  [OK] Sidecar healthy"
             break
         fi

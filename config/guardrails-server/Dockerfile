@@ -48,17 +48,21 @@ RUN --mount=type=secret,id=guardrails_token \
       echo "[WARN] GUARDRAILS_TOKEN not set -- Hub validators not installed"; \
     fi
 
-# Download ML models at build time (both require HF_TOKEN -- Sentinel v2 went gated)
+# Download ML models at build time (each model is independent -- build succeeds even if one fails)
+# Prompt Guard 2 is gated: requires HF_TOKEN + license acceptance at
+# https://huggingface.co/meta-llama/Llama-Prompt-Guard-2-86M
 RUN --mount=type=secret,id=hf_token \
     HF_TOKEN=$(cat /run/secrets/hf_token 2>/dev/null) && \
     if [ -n "$HF_TOKEN" ]; then \
-      HF_TOKEN="$HF_TOKEN" python3 -c "from transformers import pipeline; pipeline('text-classification', model='protectai/sentinel-v2')" && \
-      echo "[OK] Sentinel v2 model cached" && \
-      HF_TOKEN="$HF_TOKEN" python3 -c "from transformers import pipeline; pipeline('text-classification', model='meta-llama/Prompt-Guard-2-86M')" && \
-      echo "[OK] Prompt Guard 2 model cached"; \
-    else \
-      echo "[WARN] HF_TOKEN not set -- ML models not cached (Sentinel v2, Prompt Guard 2)"; \
-    fi
+      python3 -c "import huggingface_hub; huggingface_hub.login(token='$HF_TOKEN')"; \
+    fi && \
+    python3 -c "from transformers import pipeline; pipeline('text-classification', model='protectai/deberta-v3-base-prompt-injection-v2')" && \
+    echo "[OK] ProtectAI prompt-injection-v2 model cached" || \
+    echo "[WARN] ProtectAI prompt-injection-v2 failed to cache"; \
+    python3 -c "from transformers import pipeline; pipeline('text-classification', model='meta-llama/Llama-Prompt-Guard-2-86M')" && \
+    echo "[OK] Prompt Guard 2 model cached" || \
+    echo "[WARN] Prompt Guard 2 failed to cache (gated repo -- accept license at huggingface.co)"; \
+    true
 
 COPY config.py /app/config.py
 COPY warmup.py /app/warmup.py

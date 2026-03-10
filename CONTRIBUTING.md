@@ -1,6 +1,6 @@
-# Contributing to enclAIve
+# Contributing to enclaive
 
-Thanks for your interest in contributing to enclAIve. This document covers
+Thanks for your interest in contributing to enclaive. This document covers
 everything you need to get started, run tests, and submit changes.
 
 ## Getting Started
@@ -17,8 +17,8 @@ everything you need to get started, run tests, and submit changes.
 1. Clone the repo:
 
    ```
-   git clone https://github.com/<your-fork>/enclAIve.git
-   cd enclAIve
+   git clone https://github.com/<your-fork>/enclaive.git
+   cd enclaive
    ```
 
 2. Copy the environment template and fill in your values:
@@ -45,7 +45,7 @@ everything you need to get started, run tests, and submit changes.
 
 ## Running Tests
 
-enclAIve uses three tiers of tests. You should run at least the unit tests
+enclaive uses three tiers of tests. You should run at least the unit tests
 before submitting a PR.
 
 ### Unit tests

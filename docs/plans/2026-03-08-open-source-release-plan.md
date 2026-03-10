@@ -1,8 +1,8 @@
-# enclAIve Open Source Release — Implementation Plan
+# enclaive Open Source Release — Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Transform claude-sandbox into a professional, testable open-source project named enclAIve with comprehensive CI, real-world test coverage, and canary token tripwires.
+**Goal:** Transform claude-sandbox into a professional, testable open-source project named enclaive with comprehensive CI, real-world test coverage, and canary token tripwires.
 
 **Architecture:** Two parallel workstreams — (A) Polish & Rebrand, (B) Test Infrastructure & CI. Workstream A is mostly find-and-replace plus new files. Workstream B builds a three-tier test suite (unit/integration/AI-powered) with a separate fixtures repo.
 
@@ -101,7 +101,7 @@ Use Keep a Changelog format. Single entry:
 ## [0.1.0-alpha] - 2026-03-08
 
 ### Added
-- Initial open-source release of enclAIve
+- Initial open-source release of enclaive
 - 9-layer security hook chain for Claude Code
 - Guardrails AI sidecar with tamper-resistant validation
 - Canary token tripwires for credential exfiltration detection
@@ -132,7 +132,7 @@ git commit -m "docs: add CHANGELOG.md"
 
 In `cli/package.json`:
 - Line 2: `"name": "@tenexai/claude-sandbox"` → `"name": "enclaive"`
-- Line 3: `"description": "CLI tool for Claude Code Secure Sandbox"` → `"description": "CLI tool for enclAIve — defense-in-depth for AI coding assistants"`
+- Line 3: `"description": "CLI tool for Claude Code Secure Sandbox"` → `"description": "CLI tool for enclaive — defense-in-depth for AI coding assistants"`
 - Line 6: `"claude-sandbox": "./bin/claude-sandbox.js"` → `"enclaive": "./bin/enclaive.js"`
 
 Rename the CLI entry point file:
@@ -142,21 +142,21 @@ mv cli/bin/claude-sandbox.js cli/bin/enclaive.js
 
 In `cli/bin/enclaive.js`:
 - Line 16: `.name('claude-sandbox')` → `.name('enclaive')`
-- Line 17: `'CLI tool for Claude Code Secure Sandbox'` → `'CLI tool for enclAIve'`
+- Line 17: `'CLI tool for Claude Code Secure Sandbox'` → `'CLI tool for enclaive'`
 
 **Step 2: Rename VS Code extension**
 
 In `vscode-extension/package.json`:
 - Line 2: `"name": "claude-sandbox"` → `"name": "enclaive"`
-- Line 3: `"displayName": "Claude Code Secure Sandbox"` → `"displayName": "enclAIve"`
-- Line 4: `"description": "Status bar, notifications..."` → update to reference enclAIve
+- Line 3: `"displayName": "Claude Code Secure Sandbox"` → `"displayName": "enclaive"`
+- Line 4: `"description": "Status bar, notifications..."` → update to reference enclaive
 - Line 6: `"publisher": "tenexai"` → `"publisher": "dusty-tenex"`
 
 Also search and replace `claude-sandbox` in command IDs and configuration keys throughout `vscode-extension/package.json` → `enclaive`.
 
 **Step 3: Rename book.json**
 
-- `"title": "Claude Code Secure Sandbox"` → `"title": "enclAIve"`
+- `"title": "Claude Code Secure Sandbox"` → `"title": "enclaive"`
 - `"description": "The definitive guide..."` → `"description": "Defense-in-depth toolkit for AI coding assistants"`
 
 **Step 4: Update docker-compose.yml**
@@ -174,7 +174,7 @@ Expected: All existing tests pass.
 
 ```bash
 git add -A
-git commit -m "refactor: rename to enclAIve across config files"
+git commit -m "refactor: rename to enclaive across config files"
 ```
 
 ---
@@ -192,7 +192,7 @@ git commit -m "refactor: rename to enclAIve across config files"
 grep -n "Claude Code Secure Sandbox\|claude-sandbox\|claude_sandbox" setup.sh
 ```
 
-Replace all instances with enclAIve / enclaive equivalents. Be careful with command names vs. display names.
+Replace all instances with enclaive / enclaive equivalents. Be careful with command names vs. display names.
 
 **Step 2: Search and replace in scripts/**
 
@@ -210,7 +210,7 @@ Replace any product name references.
 
 ```bash
 git add setup.sh scripts/ Makefile
-git commit -m "refactor: rename to enclAIve in scripts and setup"
+git commit -m "refactor: rename to enclaive in scripts and setup"
 ```
 
 ---
@@ -230,7 +230,7 @@ grep -rn "Claude Code Secure Sandbox\|claude-sandbox\|@tenexai" docs/
 ```
 
 Replace all instances across all doc files:
-- "Claude Code Secure Sandbox" → "enclAIve"
+- "Claude Code Secure Sandbox" → "enclaive"
 - "@tenexai/claude-sandbox" → "enclaive"
 - "claude-sandbox" (command) → "enclaive"
 - Keep "Claude Code" when referring to Anthropic's product (not our tool)
@@ -239,7 +239,7 @@ Replace all instances across all doc files:
 
 ```bash
 git add docs/ config/CLAUDE.md
-git commit -m "docs: rename to enclAIve across all documentation"
+git commit -m "docs: rename to enclaive across all documentation"
 ```
 
 ---
@@ -285,7 +285,7 @@ git commit -m "docs: tone audit — remove overclaimed security language"
 
 Follow structure from design doc §6.2:
 
-1. Project name (enclAIve) — no logo needed for alpha
+1. Project name (enclaive) — no logo needed for alpha
 2. Alpha disclaimer (exact text from design doc §3.3)
 3. One-sentence description: "A defense-in-depth toolkit for reducing security risks when running AI coding assistants like Claude Code autonomously."
 4. What it does (bullet points, honest language)
@@ -324,7 +324,7 @@ git commit -m "docs: rewrite README for open-source release"
   "name": "enclaive",
   "version": "0.1.0-alpha",
   "private": true,
-  "description": "enclAIve — defense-in-depth for AI coding assistants",
+  "description": "enclaive — defense-in-depth for AI coding assistants",
   "license": "AGPL-3.0",
   "scripts": {
     "test": "npm run test:unit && npm run test:integration",
@@ -335,14 +335,14 @@ git commit -m "docs: rewrite README for open-source release"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/dusty-tenex/enclAIve.git"
+    "url": "https://github.com/dusty-tenex/enclaive.git"
   }
 }
 ```
 
 **Step 2: Update .env.example**
 
-Ensure it references enclAIve, not claude-sandbox. Add comments explaining the MCP Gateway recommendation for third-party credentials.
+Ensure it references enclaive, not claude-sandbox. Add comments explaining the MCP Gateway recommendation for third-party credentials.
 
 **Step 3: Verify .gitignore covers all sensitive files**
 
@@ -538,7 +538,7 @@ class TestExfilPatterns:
 
     def test_benign_curl_get(self):
         """Normal curl GET should not trigger."""
-        payload = 'curl https://api.github.com/repos/dusty-tenex/enclAIve'
+        payload = 'curl https://api.github.com/repos/dusty-tenex/enclaive'
         assert not match_patterns(payload, EXFIL_PATTERNS)
 
     def test_benign_git_push_origin(self):
@@ -1573,7 +1573,7 @@ class TestLegitimateCommands:
             "git push origin feature/my-branch",
             "git pull --rebase",
             "git fetch --all",
-            "git clone https://github.com/dusty-tenex/enclAIve",
+            "git clone https://github.com/dusty-tenex/enclaive",
         ]
         for cmd in commands:
             result = standalone_check(cmd, "exfil")
@@ -1789,7 +1789,7 @@ jobs:
   ai-tests:
     runs-on: ubuntu-latest
     # Only run if API key is available (not on forks)
-    if: github.repository == 'dusty-tenex/enclAIve'
+    if: github.repository == 'dusty-tenex/enclaive'
     steps:
       - uses: actions/checkout@v4
 
@@ -1882,7 +1882,7 @@ git log --oneline  # Review all commits
 ```bash
 git checkout --orphan release
 git add -A
-git commit -m "feat: initial release of enclAIve v0.1.0-alpha
+git commit -m "feat: initial release of enclaive v0.1.0-alpha
 
 Defense-in-depth toolkit for reducing security risks when running
 AI coding assistants autonomously. Includes 9-layer hook chain,
@@ -1908,7 +1908,7 @@ git status  # Should be clean
 
 ```bash
 cd /tmp
-git clone /path/to/enclAIve test-clone
+git clone /path/to/enclaive test-clone
 cd test-clone
 # Follow the README quick start exactly
 # Verify it works from scratch
