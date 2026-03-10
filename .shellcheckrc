@@ -1,0 +1,2 @@
+# Follow sourced files (resolve SC1091 for shared libraries)
+external-sources=true

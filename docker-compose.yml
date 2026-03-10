@@ -21,6 +21,9 @@ services:
     build:
       context: ./config/guardrails-server
       dockerfile: Dockerfile
+      secrets:
+        - guardrails_token
+        - hf_token
     container_name: guardrails-sidecar
     read_only: true
     tmpfs:
@@ -34,11 +37,11 @@ services:
     environment:
       - GUARDRAILS_LOG_LEVEL=WARNING
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "python3", "-c", "import urllib.request, os; urllib.request.urlopen('http://localhost:8000/health-check'); assert os.path.exists('/tmp/models_ready'), 'models not ready'"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 60s
     ports:
       - "${SIDECAR_PORT:-8000}:8000"
     restart: unless-stopped
@@ -48,7 +51,7 @@ services:
       resources:
         limits:
           cpus: "1.0"
-          memory: 1G
+          memory: 3G
         reservations:
           cpus: "0.25"
           memory: 256M
@@ -132,6 +135,10 @@ services:
 secrets:
   anthropic_api_key:
     environment: ANTHROPIC_API_KEY
+  guardrails_token:
+    environment: GUARDRAILS_TOKEN
+  hf_token:
+    environment: HF_TOKEN
 
 volumes:
   claude-config:

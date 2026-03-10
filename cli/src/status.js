@@ -43,7 +43,7 @@ export async function checkSidecarHealth(url) {
 export async function printStatus(opts = {}) {
   const cwd = opts.cwd || process.cwd();
   const logPath = opts.logPath || join(cwd, '.audit-logs', 'security-guard.jsonl');
-  const sidecarUrl = opts.sidecarUrl || 'http://localhost:8000/health';
+  const sidecarUrl = opts.sidecarUrl || 'http://localhost:8000/health-check';
 
   console.log('\n=== enclAIve Status ===\n');
 
@@ -96,7 +96,7 @@ export const doctorChecks = [
     name: 'docker sandbox available',
     run: async () => {
       try {
-        const out = execFileSync('docker', ['sandbox', 'ls'], { encoding: 'utf-8', stdio: 'pipe' });
+        execFileSync('docker', ['sandbox', 'ls'], { encoding: 'utf-8', stdio: 'pipe' });
         return { ok: true, message: 'docker sandbox command available' };
       } catch {
         return { ok: false, message: 'docker sandbox not available (requires Docker Desktop 4.62+)' };
@@ -165,7 +165,7 @@ export const doctorChecks = [
   {
     name: 'Sidecar health',
     run: async (opts = {}) => {
-      const url = opts.sidecarUrl || 'http://localhost:8000/health';
+      const url = opts.sidecarUrl || 'http://localhost:8000/health-check';
       const result = await checkSidecarHealth(url);
       return { ok: result.healthy, message: result.message };
     },

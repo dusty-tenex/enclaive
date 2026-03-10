@@ -18,10 +18,15 @@ fi
 echo "━━━ Plugin Bootstrap ━━━"
 
 AUDIT_POLICY=$(jq -r '.audit.policy // "fail-closed"' "$MANIFEST")
+export AUDIT_POLICY
 AUDIT_API_URL=$(jq -r '.audit.api // "local"' "$MANIFEST")
 export SKILLAUDIT_API="$AUDIT_API_URL"
 
-TOTAL=$(jq '.plugins | length' "$MANIFEST")
+TOTAL=$(jq '.plugins | length' "$MANIFEST") || { echo "[FAIL] Could not parse plugins.json"; exit 1; }
+if [ "$TOTAL" -eq 0 ]; then
+    echo "[INFO] No plugins defined in plugins.json"
+    exit 0
+fi
 INSTALLED=0
 SKIPPED=0
 BLOCKED=0
@@ -77,14 +82,21 @@ for i in $(seq 0 $((TOTAL - 1))); do
     fi
 
     if audit_path "$CLONE_DIR" "$NAME"; then
-        echo "  Installing..."
-        claude plugin install "$CLONE_DIR" 2>&1 | sed 's/^/  /' || {
-            echo "  [WARN] Install failed — skipping"
-            SKIPPED=$((SKIPPED + 1))
-            rm -rf "$CLONE_DIR"
-            continue
-        }
-        INSTALLED=$((INSTALLED + 1))
+        # Deep MCP server code audit (static + optional AI review)
+        if "${PROJECT_DIR}/scripts/mcp-audit-gate.sh" "$CLONE_DIR" "$NAME"; then
+            echo "  Installing..."
+            claude plugin install "$CLONE_DIR" 2>&1 | sed 's/^/  /' || {
+                echo "  [WARN] Install failed — skipping"
+                SKIPPED=$((SKIPPED + 1))
+                rm -rf "$CLONE_DIR"
+                continue
+            }
+            INSTALLED=$((INSTALLED + 1))
+        else
+            echo "  [FAIL] MCP code audit FAILED — not installing $NAME"
+            echo "  Review: ${AUDIT_LOG_DIR}/"
+            BLOCKED=$((BLOCKED + 1))
+        fi
     else
         echo "  [FAIL] Audit FAILED — not installing $NAME"
         echo "  Review: ${AUDIT_LOG_DIR}/"

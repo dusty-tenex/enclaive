@@ -1,0 +1,10 @@
+# CI override -- adds default bridge network so port publishing works.
+# sandbox-net is internal:true (no host access), which is correct for
+# production but breaks CI health checks and integration tests.
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+services:
+  guardrails-sidecar:
+    networks:
+      - sandbox-net
+      - default

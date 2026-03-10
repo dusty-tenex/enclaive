@@ -30,7 +30,8 @@ _check_risk() {
     level=$(echo "$result" | jq -r '.risk_level // .riskLevel // "unknown"' 2>/dev/null)
     # Sanitize name to prevent path traversal in log filename
     local safe_name="${name//\//_}"
-    local logfile="${AUDIT_LOG}/$(date +%Y%m%d-%H%M%S%N)-$$-${safe_name}.json"
+    local logfile
+    logfile="${AUDIT_LOG}/$(date +%Y%m%d-%H%M%S%N)-$$-${safe_name}.json"
     echo "$result" > "$logfile"
     if echo "$level" | grep -qiE '(critical|high)'; then
         echo "  [ALERT] BLOCKED: $name → $level" >&2
@@ -57,7 +58,8 @@ audit_url() {
 }
 
 audit_path() {
-    local dir="$1" name="${2:-$(basename "$dir")}" found=0 blocked=0
+    local dir="$1"
+    local name="${2:-$(basename "$dir")}" found=0 blocked=0
     echo "[SCAN] Scanning local: $dir" >&2
     while IFS= read -r skill_file; do
         found=$((found + 1))

@@ -3,8 +3,7 @@
 import { Command } from 'commander';
 import { resolve, join } from 'node:path';
 import {
-  buildSidecar, startSidecar, stopSidecar, startSandbox,
-  execInSandbox, stopSandbox, destroySandbox, sandboxName,
+  composeBuild, composeUp, composeDown, composeExec,
 } from '../src/docker.js';
 import { initProject } from '../src/init.js';
 import { printStatus, runDoctor, checkSidecarHealth } from '../src/status.js';
@@ -30,51 +29,64 @@ program
 // up
 program
   .command('up')
-  .description('Start sidecar + sandbox')
-  .action(async () => {
+  .argument('[project-dir]', 'project directory to mount at /workspace')
+  .description('Start sidecar + sandbox (optionally mounting a project)')
+  .action(async (projectDir) => {
     const ora = (await import('ora')).default;
+    const resolvedDir = projectDir ? resolve(projectDir) : undefined;
 
-    // Build and start sidecar
-    let spinner = ora('[INFO] Building sidecar image...').start();
+    if (resolvedDir) {
+      const { existsSync } = await import('node:fs');
+      if (!existsSync(resolvedDir)) {
+        console.error(`[FAIL] Project directory does not exist: ${resolvedDir}`);
+        process.exit(1);
+      }
+      console.log(`[INFO] Mounting project: ${resolvedDir}`);
+    }
+
+    // Build services
+    let spinner = ora('[INFO] Building services...').start();
     try {
-      await buildSidecar({ stdio: 'pipe' });
-      spinner.succeed('[OK] Sidecar image built');
+      await composeBuild({ projectDir: resolvedDir, stdio: 'pipe' });
+      spinner.succeed('[OK] Services built');
     } catch (err) {
-      spinner.fail(`[FAIL] Sidecar build failed: ${err.message}`);
+      spinner.fail(`[FAIL] Build failed: ${err.message}`);
       process.exit(1);
     }
 
-    spinner = ora('[INFO] Starting sidecar container...').start();
+    // Start all services (sidecar + proxy + sandbox)
+    spinner = ora('[INFO] Starting services...').start();
     try {
-      await startSidecar({ stdio: 'pipe' });
-      spinner.text = '[INFO] Waiting for sidecar health...';
-
-      let healthy = false;
-      for (let i = 0; i < 30; i++) {
-        const result = await checkSidecarHealth('http://localhost:8000/health');
-        if (result.healthy) { healthy = true; break; }
-        await new Promise((r) => setTimeout(r, 1000));
-      }
-
-      if (healthy) {
-        spinner.succeed('[OK] Sidecar healthy');
-      } else {
-        spinner.warn('[WARN] Sidecar started but health check failed');
-      }
+      await composeUp({ projectDir: resolvedDir, stdio: 'pipe' });
+      spinner.succeed('[OK] Services started');
     } catch (err) {
-      spinner.fail(`[FAIL] Sidecar start failed: ${err.message}`);
+      spinner.fail(`[FAIL] Start failed: ${err.message}`);
       process.exit(1);
     }
 
-    // Launch sandbox
-    const name = sandboxName(process.cwd());
-    console.log(`\n[INFO] Launching sandbox "${name}"...`);
-    console.log('[INFO] This will open an interactive sandbox session.');
-    console.log('[INFO] The sidecar is running at http://localhost:8000');
-    console.log('[INFO] Inside the sandbox, sidecar is at http://host.docker.internal:8000\n');
+    // Wait for sidecar health
+    spinner = ora('[INFO] Waiting for sidecar health...').start();
+    let healthy = false;
+    for (let i = 0; i < 60; i++) {
+      const result = await checkSidecarHealth('http://localhost:8000/health-check');
+      if (result.healthy) { healthy = true; break; }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+
+    if (healthy) {
+      spinner.succeed('[OK] Sidecar healthy');
+    } else {
+      spinner.warn('[WARN] Sidecar started but health check failed -- run "enclaive doctor" to diagnose');
+    }
+
+    // Attach to sandbox
+    const project = resolvedDir || process.cwd();
+    console.log(`\n[INFO] Attaching to sandbox...`);
+    console.log(`[INFO] Project mounted at /workspace: ${project}`);
+    console.log('[INFO] Sidecar: http://guardrails-sidecar:8000 (inside sandbox)\n');
 
     try {
-      await startSandbox({ stdio: 'inherit' });
+      await composeExec('sandbox', ['bash'], { stdio: 'inherit' });
     } catch (err) {
       if (err.exitCode !== 130) {
         console.error(`[FAIL] ${err.message}`);
@@ -86,19 +98,11 @@ program
 // down
 program
   .command('down')
-  .description('Stop sandbox and sidecar')
-  .option('--clean', 'Destroy sandbox entirely (remove VM)')
-  .action(async (options) => {
+  .description('Stop all services (sidecar + proxy + sandbox)')
+  .action(async () => {
     try {
-      if (options.clean) {
-        await destroySandbox({ stdio: 'pipe' });
-        console.log('[OK] Sandbox destroyed');
-      } else {
-        await stopSandbox({ stdio: 'pipe' });
-        console.log('[OK] Sandbox stopped');
-      }
-      await stopSidecar();
-      console.log('[OK] Sidecar stopped');
+      await composeDown({ stdio: 'inherit' });
+      console.log('[OK] All services stopped');
     } catch (err) {
       console.error(`[FAIL] ${err.message}`);
       process.exit(1);
@@ -111,7 +115,7 @@ program
   .description('Open a shell in the sandbox')
   .action(async () => {
     try {
-      await execInSandbox(['bash']);
+      await composeExec('sandbox', ['bash'], { stdio: 'inherit' });
     } catch (err) {
       if (err.exitCode !== 130) {
         console.error(`[FAIL] ${err.message}`);
@@ -127,7 +131,7 @@ program
   .description('Run a command in the sandbox')
   .action(async (command) => {
     try {
-      await execInSandbox(command, { interactive: false });
+      await composeExec('sandbox', command, { stdio: 'inherit' });
     } catch (err) {
       console.error(`[FAIL] ${err.message}`);
       process.exit(1);

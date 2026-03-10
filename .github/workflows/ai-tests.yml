@@ -1,6 +1,7 @@
 name: AI-Powered Tests
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
 
@@ -20,7 +21,11 @@ jobs:
         run: pip install -r requirements-test.txt
 
       - name: Build and start sidecar
-        run: docker compose up -d guardrails-sidecar
+        env:
+          GUARDRAILS_TOKEN: ${{ secrets.GUARDRAILS_TOKEN }}
+        run: |
+          DOCKER_BUILDKIT=1 docker compose build guardrails-sidecar
+          docker compose up -d guardrails-sidecar
 
       - name: Wait for sidecar health
         run: |

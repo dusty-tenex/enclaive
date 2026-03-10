@@ -11,9 +11,11 @@ case "${1:-}" in
     next)
         # Atomic claim: attempt mv directly; if it fails, another agent got it first
         CLAIMED=false
-        for NEXT in $(ls "$QUEUE_DIR/pending/" 2>/dev/null); do
-            if mv "$QUEUE_DIR/pending/$NEXT" "$QUEUE_DIR/active/$NEXT" 2>/dev/null; then
-                cat "$QUEUE_DIR/active/$NEXT"
+        for NEXT in "$QUEUE_DIR/pending/"*; do
+            [ -e "$NEXT" ] || continue
+            FILENAME=$(basename "$NEXT")
+            if mv "$QUEUE_DIR/pending/$FILENAME" "$QUEUE_DIR/active/$FILENAME" 2>/dev/null; then
+                cat "$QUEUE_DIR/active/$FILENAME"
                 CLAIMED=true
                 break
             fi

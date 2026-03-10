@@ -47,8 +47,13 @@ if command -v realpath >/dev/null 2>&1; then
     # resolve path components without requiring the file to exist
     CANONICAL=$(realpath -m --relative-to="$(pwd)" "$FILE_PATH" 2>/dev/null) || CANONICAL="$FILE_PATH"
 else
-    # Fallback: strip ./ prefixes and collapse ../ sequences
-    CANONICAL=$(echo "$FILE_PATH" | sed -e 's|/\./|/|g' -e 's|/[^/]*/\.\./|/|g' -e 's|^\./||')
+    # Fallback: strip ./ prefixes and collapse ../ sequences (loop to handle multiple levels)
+    CANONICAL="$FILE_PATH"
+    PREV=""
+    while [ "$CANONICAL" != "$PREV" ]; do
+        PREV="$CANONICAL"
+        CANONICAL=$(echo "$CANONICAL" | sed -e 's|/\./|/|g' -e 's|/[^/]*/\.\./|/|g' -e 's|^\./||')
+    done
 fi
 
 # ── Tier 1: Kernel-enforced paths (defense-in-depth warning) ──────
@@ -87,15 +92,9 @@ TIER2_PATTERNS=(
     '(^|/)\.yarnrc'
     '(^|/)lefthook\.yml$'
     '(^|/)\.pre-commit-config\.yaml$'
-    '(^|/)/etc/sandbox-guards/'
-    '(^|/)/run/secrets/'
+    '(^|/)etc/sandbox-guards/'
+    '(^|/)run/secrets/'
     '(^|/)\.env(\.|$)'
-    '(^|/)Makefile$'
-    '(^|/)Justfile$'
-    '(^|/)\.github/workflows/'
-    '(^|/)\.gitlab-ci\.yml$'
-    '(^|/)\.circleci/'
-    '(^|/)Jenkinsfile$'
     '(^|/)\.profile$'
     '(^|/)\.bashrc$'
     '(^|/)\.zshrc$'

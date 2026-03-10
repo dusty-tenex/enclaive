@@ -12,7 +12,12 @@
     "test": "node --test tests/*.test.js",
     "lint": "eslint src/ bin/"
   },
-  "keywords": ["claude", "sandbox", "security", "guardrails"],
+  "keywords": [
+    "claude",
+    "sandbox",
+    "security",
+    "guardrails"
+  ],
   "license": "AGPL-3.0-only",
   "dependencies": {
     "chalk": "^5.3.0",
@@ -21,7 +26,8 @@
     "ora": "^8.1.0"
   },
   "devDependencies": {
-    "eslint": "^9.0.0"
+    "eslint": "^9.0.0",
+    "globals": "^17.4.0"
   },
   "type": "module"
 }

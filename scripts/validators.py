@@ -10,6 +10,7 @@ Do NOT duplicate these patterns elsewhere. Import from this module.
 import os
 import re
 import math
+import sys
 from collections import Counter
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -157,6 +158,89 @@ def _load_require_sidecar():
         pass
     return os.environ.get('GUARDRAILS_REQUIRE_SIDECAR', '1')
 
+def _load_ml_config():
+    """Load ML security settings from root-owned config file.
+
+    Config file at /etc/sandbox-guards/enclaive.conf is read-only mounted
+    from the host. Falls back to env vars for development environments.
+
+    Returns a dict with keys: ml_sentinel_v2, ml_prompt_guard_2,
+    bash_ast_parser, ml_sentinel_threshold, ml_prompt_guard_threshold,
+    ml_ensemble_mode.
+    """
+    # Defaults (secure-by-default)
+    defaults = {
+        'ml_sentinel_v2': True,
+        'ml_prompt_guard_2': True,
+        'bash_ast_parser': True,
+        'ml_sentinel_threshold': 0.85,
+        'ml_prompt_guard_threshold': 0.90,
+        'ml_ensemble_mode': 'block',
+    }
+
+    # Config key -> (conf file key, env var, type)
+    key_map = {
+        'ml_sentinel_v2':          ('ml_sentinel_v2',          'ENCLAIVE_ML_SENTINEL_V2',          'bool'),
+        'ml_prompt_guard_2':       ('ml_prompt_guard_2',       'ENCLAIVE_ML_PROMPT_GUARD_2',       'bool'),
+        'bash_ast_parser':         ('bash_ast_parser',         'ENCLAIVE_BASH_AST_PARSER',         'bool'),
+        'ml_sentinel_threshold':   ('ml_sentinel_threshold',   'ENCLAIVE_ML_SENTINEL_THRESHOLD',   'float'),
+        'ml_prompt_guard_threshold': ('ml_prompt_guard_threshold', 'ENCLAIVE_ML_PROMPT_GUARD_THRESHOLD', 'float'),
+        'ml_ensemble_mode':        ('ml_ensemble_mode',        'ENCLAIVE_ML_ENSEMBLE_MODE',        'str'),
+    }
+
+    # Try config file first
+    conf_path = '/etc/sandbox-guards/enclaive.conf'
+    file_values = {}
+    try:
+        with open(conf_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if '=' not in line:
+                    continue
+                k, v = line.split('=', 1)
+                file_values[k.strip()] = v.strip()
+    except (FileNotFoundError, PermissionError):
+        pass
+
+    result = {}
+    for key, (conf_key, env_var, typ) in key_map.items():
+        raw = file_values.get(conf_key)
+        if raw is None:
+            raw = os.environ.get(env_var)
+
+        if raw is None:
+            result[key] = defaults[key]
+            continue
+
+        if typ == 'bool':
+            result[key] = (raw != '0')
+        elif typ == 'float':
+            try:
+                parsed = float(raw)
+                if 0.0 <= parsed <= 1.0:
+                    result[key] = parsed
+                else:
+                    result[key] = defaults[key]
+                    print(f"WARNING: {key}={raw} outside valid range [0.0, 1.0] — using default {defaults[key]}", file=sys.stderr)
+            except ValueError:
+                result[key] = defaults[key]
+        elif typ == 'str':
+            if raw in ('block', 'pass'):
+                result[key] = raw
+            else:
+                result[key] = defaults[key]
+
+    # Warn if any threshold is dangerously high
+    for tkey in ('ml_sentinel_threshold', 'ml_prompt_guard_threshold'):
+        if result[tkey] > 0.95:
+            print(f"WARNING: {tkey}={result[tkey]} will miss most attacks — recommended range 0.80-0.95", file=sys.stderr)
+
+    return result
+
+_ML_CONFIG = _load_ml_config()
+
 def match_patterns(content, patterns):
     normalized = normalize_unicode(content)
     check_normalized = (normalized != content)
@@ -181,10 +265,23 @@ def register_validators():
 
     @register_validator(name="enclaive/exfil-detector", data_type="string")
     class ExfilDetector(Validator):
-        """Bash command exfiltration detection."""
-        def __init__(self, **kw): super().__init__(**kw)
+        """Bash command exfiltration detection with optional AST extraction."""
+        def __init__(self, use_ast=False, **kw):
+            super().__init__(**kw)
+            self._use_ast = use_ast
         def _validate(self, value, metadata=None):
             f = match_patterns(value, EXFIL_PATTERNS)
+            if self._use_ast and _ML_CONFIG.get('bash_ast_parser', True):
+                try:
+                    from bash_ast import extract_strings
+                    extracted = extract_strings(value)
+                    for s in extracted:
+                        sf = match_patterns(s, EXFIL_PATTERNS)
+                        f.extend(f"In AST string: {x}" for x in sf)
+                        cf = match_patterns(s, CREDENTIAL_PATTERNS)
+                        f.extend(f"In AST string: {x}" for x in cf)
+                except Exception:
+                    pass
             return FailResult(error_message=f"Exfil: {'; '.join(f)}") if f else PassResult()
 
     @register_validator(name="enclaive/encoding-detector", data_type="string")
@@ -257,11 +354,115 @@ def register_validators():
                 if re.search(term, fl): f.append(f"Acrostic spells '{term}'")
             return FailResult(error_message=f"Acrostic: {'; '.join(f)}") if f else PassResult()
 
+    @register_validator(name="enclaive/sentinel-v2-detector", data_type="string")
+    class SentinelV2Detector(Validator):
+        """ML-based injection/jailbreak detection using ProtectAI Sentinel v2."""
+        _pipeline = None
+        _load_attempted = False
+
+        def __init__(self, **kw):
+            super().__init__(**kw)
+
+        @classmethod
+        def _get_pipeline(cls):
+            if cls._load_attempted:
+                return cls._pipeline
+            cls._load_attempted = True
+            try:
+                from transformers import pipeline
+                cls._pipeline = pipeline(
+                    "text-classification",
+                    model="protectai/sentinel-v2",
+                    device=-1,
+                    truncation=True,
+                    max_length=512,
+                )
+            except Exception:
+                cls._pipeline = None
+            return cls._pipeline
+
+        def _validate(self, value, metadata=None):
+            if not _ML_CONFIG.get('ml_sentinel_v2', True):
+                return PassResult()
+            pipe = self._get_pipeline()
+            if pipe is None:
+                return PassResult()
+            try:
+                result = pipe(value[:512])[0]
+                threshold = _ML_CONFIG.get('ml_sentinel_threshold', 0.85)
+                if result['label'] == 'INJECTION' and result['score'] >= threshold:
+                    return FailResult(
+                        error_message=f"ML Sentinel v2: injection detected (score={result['score']:.3f}, threshold={threshold})"
+                    )
+            except Exception:
+                pass
+            return PassResult()
+
+    @register_validator(name="enclaive/prompt-guard-2-detector", data_type="string")
+    class PromptGuard2Detector(Validator):
+        """ML-based injection detection using Meta Prompt Guard 2 86M. 8 languages."""
+        _pipeline = None
+        _load_attempted = False
+
+        def __init__(self, **kw):
+            super().__init__(**kw)
+
+        @classmethod
+        def _get_pipeline(cls):
+            if cls._load_attempted:
+                return cls._pipeline
+            cls._load_attempted = True
+            try:
+                from transformers import pipeline
+                cls._pipeline = pipeline(
+                    "text-classification",
+                    model="meta-llama/Prompt-Guard-2-86M",
+                    device=-1,
+                    truncation=True,
+                    max_length=512,
+                )
+            except Exception:
+                cls._pipeline = None
+            return cls._pipeline
+
+        def _validate(self, value, metadata=None):
+            if not _ML_CONFIG.get('ml_prompt_guard_2', True):
+                return PassResult()
+            pipe = self._get_pipeline()
+            if pipe is None:
+                return PassResult()
+            try:
+                result = pipe(value[:512])[0]
+                threshold = _ML_CONFIG.get('ml_prompt_guard_threshold', 0.90)
+                if result['label'] == 'INJECTION' and result['score'] >= threshold:
+                    return FailResult(
+                        error_message=f"ML Prompt Guard 2: injection detected (score={result['score']:.3f}, threshold={threshold})"
+                    )
+            except Exception:
+                pass
+            return PassResult()
+
+    @register_validator(name="enclaive/eval-source-escalator", data_type="string")
+    class EvalSourceEscalator(Validator):
+        """P0 escalation for eval/source/dot-source commands."""
+        def __init__(self, **kw):
+            super().__init__(**kw)
+        def _validate(self, value, metadata=None):
+            from bash_ast import has_eval_or_source
+            if has_eval_or_source(value):
+                return FailResult(
+                    error_message="P0 ESCALATION: eval/source detected — computed strings cannot be AST-inspected"
+                )
+            return PassResult()
+
     return {
         'ExfilDetector': ExfilDetector,
         'EncodingDetector': EncodingDetector,
         'ForeignScriptDetector': ForeignScriptDetector,
         'AcrosticDetector': AcrosticDetector,
+        'SentinelV2Detector': SentinelV2Detector,
+        'PromptGuard2Detector': PromptGuard2Detector,
+        'EvalSourceEscalator': EvalSourceEscalator,
     }
 
 # Auto-register on import
