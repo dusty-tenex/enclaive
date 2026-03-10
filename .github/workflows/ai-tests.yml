@@ -25,19 +25,25 @@ jobs:
           GUARDRAILS_TOKEN: ${{ secrets.GUARDRAILS_TOKEN }}
         run: |
           DOCKER_BUILDKIT=1 docker compose build guardrails-sidecar
-          docker compose up -d guardrails-sidecar
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d guardrails-sidecar
 
       - name: Wait for sidecar health
         run: |
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
-              echo "Sidecar is healthy"
+          echo "Waiting for sidecar to start (workers take ~30-40s to boot)..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8000/health-check > /dev/null 2>&1; then
+              echo "Sidecar is healthy (after $((i * 2))s)"
               exit 0
             fi
-            echo "Waiting for sidecar... ($i/30)"
+            if [ $((i % 10)) -eq 0 ]; then
+              echo "Still waiting... ($i/60)"
+            fi
             sleep 2
           done
           echo "Sidecar failed to become healthy"
+          docker compose ps guardrails-sidecar
+          curl -v http://localhost:8000/health-check 2>&1 || true
+          docker compose logs guardrails-sidecar
           exit 1
 
       - name: Run AI-powered tests
@@ -48,4 +54,4 @@ jobs:
 
       - name: Teardown
         if: always()
-        run: docker compose down
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down
