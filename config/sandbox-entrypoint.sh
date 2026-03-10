@@ -151,7 +151,7 @@ if [ -d .git/hooks ]; then
     chmod 644 .git/hooks/* 2>/dev/null || true
     # Make executable hooks actually executable (read-only to sandbox user)
     for hook in .git/hooks/*; do
-        [ -f "$hook" ] && [ ! -L "$hook" ] && head -1 "$hook" | grep -q '^#!' && chmod 755 "$hook"
+        [ -f "$hook" ] && [ ! -L "$hook" ] && head -1 "$hook" | grep -q '^#!' && chmod 755 "$hook" || true
     done
 fi
 
@@ -190,7 +190,7 @@ chmod 444 .memory-integrity/*.sha256 2>/dev/null || true
 # Count protected paths
 PROTECTED=0
 for p in .git/hooks .git/config .claude/settings.json .memory-integrity; do
-    [ -e "$p" ] && ((PROTECTED++))
+    [ -e "$p" ] && ((PROTECTED++)) || true
 done
 echo "  [OK] ${PROTECTED} paths locked (root-owned, agent cannot modify)"
 
