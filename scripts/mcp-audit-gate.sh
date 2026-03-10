@@ -20,8 +20,7 @@ LOGFILE="${AUDIT_LOG_DIR}/mcp-audit-$(date +%Y%m%d-%H%M%S)-${NAME}.json"
 
 echo "  [SCAN] MCP audit: $NAME"
 
-python3 "${PROJECT_DIR}/scripts/mcp-audit.py" "$TARGET" $AI_FLAG --json > "$LOGFILE" 2>&1
-EXIT_CODE=$?
+python3 "${PROJECT_DIR}/scripts/mcp-audit.py" "$TARGET" $AI_FLAG --json > "$LOGFILE" 2>&1 || true
 
 VERDICT=$(python3 -c "import json,sys; print(json.load(open('$LOGFILE')).get('verdict','ERROR'))" 2>/dev/null || echo "ERROR")
 P0=$(python3 -c "import json,sys; print(json.load(open('$LOGFILE')).get('summary',{}).get('P0',0))" 2>/dev/null || echo "?")
