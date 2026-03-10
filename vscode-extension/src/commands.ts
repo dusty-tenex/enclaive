@@ -74,7 +74,7 @@ export function registerCommands(
       statusBar.setState("starting");
 
       const terminal = vscode.window.createTerminal({
-        name: "enclAIve",
+        name: "enclaive",
         hideFromUser: true,
       });
       // Start sidecar (standalone container) then sandbox (microVM)
@@ -107,7 +107,7 @@ export function registerCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand("enclaive.stop", () => {
       const terminal = vscode.window.createTerminal({
-        name: "enclAIve",
+        name: "enclaive",
         hideFromUser: true,
       });
       // Stop sandbox and sidecar
@@ -123,7 +123,7 @@ export function registerCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand("enclaive.restartSidecar", () => {
       const terminal = vscode.window.createTerminal({
-        name: "enclAIve",
+        name: "enclaive",
         hideFromUser: true,
       });
       terminal.sendText("docker restart guardrails-sidecar");

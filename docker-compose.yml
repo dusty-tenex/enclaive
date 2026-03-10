@@ -1,4 +1,4 @@
-# docker-compose.yml — One-command enclAIve secure sandbox
+# docker-compose.yml — One-command enclaive secure sandbox
 #
 # Usage:
 #   docker compose up -d                    # start everything

@@ -1,4 +1,4 @@
-# enclAIve
+# enclaive
 
 Defense-in-depth security for AI coding assistants.
 
@@ -6,7 +6,7 @@ Defense-in-depth security for AI coding assistants.
 
 > [WARN] ALPHA SOFTWARE
 >
-> enclAIve is in alpha. Its pattern-matching guards catch obvious payloads and
+> enclaive is in alpha. Its pattern-matching guards catch obvious payloads and
 > LLMs gone off the rails, but they are naive and can be bypassed by a
 > determined adversary. The sandbox (microVM) is the real security boundary;
 > everything else is defense in depth that reduces risk but does not eliminate
@@ -16,7 +16,7 @@ Defense-in-depth security for AI coding assistants.
 
 ## What it does
 
-enclAIve wraps Claude Code in multiple security layers so you can grant it
+enclaive wraps Claude Code in multiple security layers so you can grant it
 autonomy with less risk. It combines Docker Sandbox microVM isolation with a
 9-layer hook chain, a guardrails sidecar, canary token tripwires, and an
 inline fallback detection engine.
@@ -73,8 +73,8 @@ catches it -- or at minimum, the sandbox contains the blast radius.
 
 ```bash
 # Clone
-git clone https://github.com/dusty-tenex/enclAIve.git
-cd enclAIve
+git clone https://github.com/dusty-tenex/enclaive.git
+cd enclaive
 
 # Configure
 cp .env.example .env

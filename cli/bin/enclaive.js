@@ -13,7 +13,7 @@ const program = new Command();
 
 program
   .name('enclaive')
-  .description('CLI tool for enclAIve — defense-in-depth for AI coding assistants')
+  .description('CLI tool for enclaive — defense-in-depth for AI coding assistants')
   .version('0.1.0');
 
 // init

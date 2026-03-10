@@ -1,6 +1,6 @@
 {
-  "title": "enclAIve",
-  "description": "The definitive guide to enclAIve — defense-in-depth for AI coding assistants in hardened Docker Sandbox microVMs.",
+  "title": "enclaive",
+  "description": "The definitive guide to enclaive — defense-in-depth for AI coding assistants in hardened Docker Sandbox microVMs.",
   "language": "en",
   "gitbook": ">=3.2.0",
   "root": "./docs",

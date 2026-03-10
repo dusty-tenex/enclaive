@@ -1,6 +1,6 @@
-# enclAIve - VS Code Extension
+# enclaive - VS Code Extension
 
-VS Code integration for enclAIve. Provides real-time
+VS Code integration for enclaive. Provides real-time
 status monitoring, block notifications, and a security log viewer.
 
 ## Features
@@ -16,12 +16,12 @@ status monitoring, block notifications, and a security log viewer.
 
 | Command | Description |
 |---------|-------------|
-| enclAIve: Start | Start sandbox containers via docker compose |
-| enclAIve: Stop | Stop sandbox containers |
-| enclAIve: Restart Sidecar | Restart the guardrails sidecar container |
-| enclAIve: Show Security Log | Open the security log output channel |
-| enclAIve: Run Doctor | Run diagnostic checks |
-| enclAIve: Open Shell | Open a bash shell in the sandbox container |
+| enclaive: Start | Start sandbox containers via docker compose |
+| enclaive: Stop | Stop sandbox containers |
+| enclaive: Restart Sidecar | Restart the guardrails sidecar container |
+| enclaive: Show Security Log | Open the security log output channel |
+| enclaive: Run Doctor | Run diagnostic checks |
+| enclaive: Open Shell | Open a bash shell in the sandbox container |
 
 ## Settings
 

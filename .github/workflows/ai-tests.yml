@@ -7,7 +7,7 @@ on:
 
 jobs:
   ai-tests:
-    if: github.repository == 'dusty-tenex/enclAIve'
+    if: github.repository == 'dusty-tenex/enclaive'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

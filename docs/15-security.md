@@ -4,7 +4,7 @@
 
 An AI coding assistant with shell access, network access, and file write access can be compromised via prompt injection (from fetched content, malicious plugins, or poisoned instruction files) and then weaponized to steal credentials, exfiltrate code, persist backdoors, or pivot to connected systems.
 
-enclAIve assumes compromise will happen and layers defenses so that no single bypass is catastrophic.
+enclaive assumes compromise will happen and layers defenses so that no single bypass is catastrophic.
 
 ## Defense Layers
 

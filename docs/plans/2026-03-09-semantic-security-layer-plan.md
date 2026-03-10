@@ -168,7 +168,7 @@ Expected: 3 PASS
 Update `config/guards/enclaive.conf`:
 
 ```ini
-# enclAIve security configuration
+# enclaive security configuration
 # This file is mounted read-only at /etc/sandbox-guards/enclaive.conf
 # The agent cannot modify it — only the host operator can.
 

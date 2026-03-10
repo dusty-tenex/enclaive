@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ╔══════════════════════════════════════════════════════════════════════╗
-# ║  enclAIve — One-Command Setup                                       ║
+# ║  enclaive — One-Command Setup                                       ║
 # ║                                                                      ║
 # ║  Sets up a defense-in-depth Claude Code dev environment              ║
 # ║  with microVM isolation, deny-by-default networking, skill audit     ║
@@ -32,7 +32,7 @@ step()  { echo -e "\n${CYAN}━━━ $* ━━━${NC}"; }
 
 echo -e "${BOLD}"
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║  enclAIve — Automated Setup                                  ║"
+echo "║  enclaive — Automated Setup                                  ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 info "Project directory: ${BOLD}$PROJECT_DIR${NC}"

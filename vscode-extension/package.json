@@ -1,7 +1,7 @@
 {
   "name": "enclaive",
-  "displayName": "enclAIve",
-  "description": "Status bar, notifications, and log viewer for enclAIve — defense-in-depth for AI coding assistants.",
+  "displayName": "enclaive",
+  "description": "Status bar, notifications, and log viewer for enclaive — defense-in-depth for AI coding assistants.",
   "version": "0.1.0",
   "publisher": "dusty-tenex",
   "license": "AGPL-3.0-only",
@@ -20,31 +20,31 @@
     "commands": [
       {
         "command": "enclaive.start",
-        "title": "enclAIve: Start"
+        "title": "enclaive: Start"
       },
       {
         "command": "enclaive.stop",
-        "title": "enclAIve: Stop"
+        "title": "enclaive: Stop"
       },
       {
         "command": "enclaive.restartSidecar",
-        "title": "enclAIve: Restart Sidecar"
+        "title": "enclaive: Restart Sidecar"
       },
       {
         "command": "enclaive.showLog",
-        "title": "enclAIve: Show Security Log"
+        "title": "enclaive: Show Security Log"
       },
       {
         "command": "enclaive.doctor",
-        "title": "enclAIve: Run Doctor"
+        "title": "enclaive: Run Doctor"
       },
       {
         "command": "enclaive.openShell",
-        "title": "enclAIve: Open Shell"
+        "title": "enclaive: Open Shell"
       }
     ],
     "configuration": {
-      "title": "enclAIve",
+      "title": "enclaive",
       "properties": {
         "enclaive.sidecarUrl": {
           "type": "string",

@@ -44,7 +44,7 @@ export function initProject(targetDir) {
     const content = readFileSync(gitignorePath, 'utf-8');
     const toAdd = ignoreEntries.filter((e) => !content.includes(e));
     if (toAdd.length > 0) {
-      appendFileSync(gitignorePath, '\n# enclAIve\n' + toAdd.join('\n') + '\n');
+      appendFileSync(gitignorePath, '\n# enclaive\n' + toAdd.join('\n') + '\n');
       console.log(`[OK] Updated .gitignore with ${toAdd.length} entries`);
     }
   }

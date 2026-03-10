@@ -1,4 +1,4 @@
-# enclAIve — Makefile
+# enclaive — Makefile
 # Convenience targets for common operations.
 
 PROJECT ?= ~/my-project

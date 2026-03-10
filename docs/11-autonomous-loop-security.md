@@ -1,6 +1,6 @@
 # Part 11: Autonomous Loop Security
 
-Autonomous loop plugins (e.g., [ralph-wiggum](https://github.com/anthropics/claude-code/tree/main/plugins/ralph-wiggum)) let Claude iterate on a task unattended. enclAIve does not implement its own loop — use whichever plugin or technique fits your workflow. This page documents the security risks that apply to **any** autonomous loop pattern and how enclAIve's guards mitigate them.
+Autonomous loop plugins (e.g., [ralph-wiggum](https://github.com/anthropics/claude-code/tree/main/plugins/ralph-wiggum)) let Claude iterate on a task unattended. enclaive does not implement its own loop — use whichever plugin or technique fits your workflow. This page documents the security risks that apply to **any** autonomous loop pattern and how enclaive's guards mitigate them.
 
 ## The Risk: Inter-Iteration Poisoning
 
@@ -13,7 +13,7 @@ Any loop that persists state to disk (progress files, task definitions, memory f
 
 This is the same inter-session poisoning risk that affects any AI instruction file — autonomous loops just make it more dangerous because there is no human reviewing between iterations.
 
-## How enclAIve Mitigates This
+## How enclaive Mitigates This
 
 | Guard | What it does |
 |-------|-------------|

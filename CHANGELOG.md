@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0-alpha] - 2026-03-08
 
 ### Added
-- Initial open-source release of enclAIve
+- Initial open-source release of enclaive
 - 9-layer security hook chain for Claude Code (PreToolUse, PostToolUse, SessionStart)
 - Guardrails AI sidecar with tamper-resistant validation (read-only filesystem, separate container)
 - Canary token tripwires for credential exfiltration detection

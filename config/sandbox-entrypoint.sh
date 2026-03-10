@@ -9,7 +9,7 @@ SCRIPTS_SRC="/home/sandbox/.sandbox-scripts"
 CONFIG_SRC="/home/sandbox/.sandbox-config"
 SIDECAR="${GUARDRAILS_SIDECAR_URL:-http://guardrails-sidecar:8000}"
 
-echo "━━━ enclAIve ━━━"
+echo "━━━ enclaive ━━━"
 
 # ── Load API key from Docker secret if available ─────────────────────
 if [ -f /run/secrets/anthropic_api_key ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
