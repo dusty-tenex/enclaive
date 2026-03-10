@@ -26,7 +26,7 @@ RUN npm install -g @anthropic-ai/claude-code
 COPY scripts/ /home/sandbox/.sandbox-scripts/
 COPY config/sandbox-entrypoint.sh /home/sandbox/entrypoint.sh
 COPY config/CLAUDE.md config/RALPH.md config/settings.json /home/sandbox/.sandbox-config/
-COPY config/canary/setup-canaries.sh /home/sandbox/.sandbox-canary/setup-canaries.sh
+COPY config/canary/ /home/sandbox/.sandbox-canary/
 
 RUN chmod +x /home/sandbox/entrypoint.sh \
     && chmod +x /home/sandbox/.sandbox-scripts/*.sh 2>/dev/null || true
