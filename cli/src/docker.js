@@ -149,10 +149,13 @@ export async function composeBuild(opts = {}) {
   const root = repoRoot();
   const env = { ...process.env };
   if (opts.projectDir) env.PROJECT_DIR = opts.projectDir;
+  // stdin must be 'ignore' — Docker buildx/bake reads from stdin and fails
+  // with "read |0: file already closed" if it gets a piped stdin.
+  const stdio = opts.stdio === 'pipe' ? ['ignore', 'pipe', 'pipe'] : (opts.stdio || 'inherit');
   return execa('docker', ['compose', 'build'], {
     cwd: root,
     env,
-    stdio: opts.stdio || 'inherit',
+    stdio,
   });
 }
 
