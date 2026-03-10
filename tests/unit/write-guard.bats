@@ -108,22 +108,19 @@ hook_json() {
     [[ "$output" == *"Tier 2"* ]]
 }
 
-@test "blocks .github/workflows/ (Tier 2)" {
+@test "allows .github/workflows/ (Tier 3 -- agent-writable)" {
     run bash -c 'printf '"'"'{"tool_name":"Write","tool_input":{"file_path":".github/workflows/ci.yml","content":"x"}}'"'"' | bash '"$SCRIPT"
-    [ "$status" -eq 2 ]
-    [[ "$output" == *"Tier 2"* ]]
+    [ "$status" -eq 0 ]
 }
 
-@test "blocks Makefile (Tier 2)" {
+@test "allows Makefile (Tier 3 -- agent-writable)" {
     run bash -c 'printf '"'"'{"tool_name":"Write","tool_input":{"file_path":"Makefile","content":"x"}}'"'"' | bash '"$SCRIPT"
-    [ "$status" -eq 2 ]
-    [[ "$output" == *"Tier 2"* ]]
+    [ "$status" -eq 0 ]
 }
 
-@test "blocks Jenkinsfile (Tier 2)" {
+@test "allows Jenkinsfile (Tier 3 -- agent-writable)" {
     run bash -c 'printf '"'"'{"tool_name":"Write","tool_input":{"file_path":"Jenkinsfile","content":"x"}}'"'"' | bash '"$SCRIPT"
-    [ "$status" -eq 2 ]
-    [[ "$output" == *"Tier 2"* ]]
+    [ "$status" -eq 0 ]
 }
 
 @test "blocks .husky/ (Tier 2)" {
