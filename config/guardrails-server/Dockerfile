@@ -55,7 +55,7 @@ RUN --mount=type=secret,id=hf_token \
       python3 -c "import huggingface_hub; huggingface_hub.login(token='$HF_TOKEN')" && \
       python3 -c "from transformers import pipeline; pipeline('text-classification', model='protectai/deberta-v3-base-prompt-injection-v2')" && \
       echo "[OK] ProtectAI prompt-injection-v2 model cached" && \
-      python3 -c "from transformers import pipeline; pipeline('text-classification', model='meta-llama/Prompt-Guard-2-86M')" && \
+      python3 -c "from transformers import pipeline; pipeline('text-classification', model='meta-llama/Llama-Prompt-Guard-2-86M')" && \
       echo "[OK] Prompt Guard 2 model cached"; \
     else \
       echo "[WARN] HF_TOKEN not set -- ML models not cached (ProtectAI injection v2, Prompt Guard 2)"; \

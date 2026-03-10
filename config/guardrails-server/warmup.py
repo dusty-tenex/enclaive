@@ -18,7 +18,7 @@ def warmup():
 
     try:
         from transformers import pipeline
-        pg2 = pipeline("text-classification", model="meta-llama/Prompt-Guard-2-86M", device=-1, truncation=True, max_length=512)
+        pg2 = pipeline("text-classification", model="meta-llama/Llama-Prompt-Guard-2-86M", device=-1, truncation=True, max_length=512)
         pg2("test warmup")
         print(f"[warmup] Prompt Guard 2 loaded ({time.time()-start:.1f}s)", flush=True)
     except Exception as e:
