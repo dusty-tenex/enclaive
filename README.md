@@ -69,6 +69,25 @@ catches it -- or at minimum, the sandbox contains the blast radius.
 - Anthropic API key or Claude Max OAuth token
 - macOS 13+ or Windows 11 with WSL2
 
+### Get API Tokens
+
+enclaive needs up to three tokens. Only the first is required:
+
+| Token | Where to get it | What it does |
+|-------|----------------|--------------|
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/) | Powers Claude Code inside the sandbox |
+| `GUARDRAILS_TOKEN` | [hub.guardrailsai.com](https://hub.guardrailsai.com/) (free) | Enables Hub validators (secrets, PII, jailbreak detection) |
+| `HF_TOKEN` | [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) (Read access) | Downloads ML models for the injection detection ensemble |
+
+If you provide `HF_TOKEN`, you must also **accept the model licenses** (one-time,
+logged into the same HuggingFace account):
+
+1. [meta-llama/Llama-Prompt-Guard-2-86M](https://huggingface.co/meta-llama/Llama-Prompt-Guard-2-86M) -- click "Agree and access repository"
+2. [protectai/deberta-v3-base-prompt-injection-v2](https://huggingface.co/protectai/deberta-v3-base-prompt-injection-v2) -- public, no approval needed
+
+Without `GUARDRAILS_TOKEN` or `HF_TOKEN`, enclaive still works -- guards fall
+back to inline regex and entropy analysis. The tokens add stronger detection.
+
 ### Setup
 
 ```bash
@@ -78,7 +97,7 @@ cd enclaive
 
 # Configure
 cp .env.example .env
-# Edit .env -- add your ANTHROPIC_API_KEY
+# Edit .env -- add your tokens (see table above)
 
 # Install CLI
 cd cli && npm install && npm link && cd ..
