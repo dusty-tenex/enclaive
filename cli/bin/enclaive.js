@@ -51,7 +51,7 @@ program
 
       let healthy = false;
       for (let i = 0; i < 30; i++) {
-        const result = await checkSidecarHealth('http://localhost:8000/health');
+        const result = await checkSidecarHealth('http://localhost:8000/health-check');
         if (result.healthy) { healthy = true; break; }
         await new Promise((r) => setTimeout(r, 1000));
       }

@@ -43,7 +43,7 @@ export async function checkSidecarHealth(url) {
 export async function printStatus(opts = {}) {
   const cwd = opts.cwd || process.cwd();
   const logPath = opts.logPath || join(cwd, '.audit-logs', 'security-guard.jsonl');
-  const sidecarUrl = opts.sidecarUrl || 'http://localhost:8000/health';
+  const sidecarUrl = opts.sidecarUrl || 'http://localhost:8000/health-check';
 
   console.log('\n=== enclAIve Status ===\n');
 
@@ -165,7 +165,7 @@ export const doctorChecks = [
   {
     name: 'Sidecar health',
     run: async (opts = {}) => {
-      const url = opts.sidecarUrl || 'http://localhost:8000/health';
+      const url = opts.sidecarUrl || 'http://localhost:8000/health-check';
       const result = await checkSidecarHealth(url);
       return { ok: result.healthy, message: result.message };
     },
